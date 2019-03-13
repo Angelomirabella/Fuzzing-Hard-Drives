@@ -1,0 +1,3 @@
+Simple python module to send ATA commands through the ATA-PASS-THROUGH CDB (Command Description Block).
+
+Code is adapted from the guide : https://codingrelic.geekhold.com/2012/02/ata-commands-in-python.html
