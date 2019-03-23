@@ -5,6 +5,9 @@ class AtaCmd(ctypes.Structure):
   """ATA Command Pass-Through
      http://www.t10.org/ftp/t10/document.04/04-262r8.pdf"""
 
+
+
+
   _fields_ = [
       ('opcode', ctypes.c_ubyte),
       ('protocol', ctypes.c_ubyte),
@@ -61,7 +64,7 @@ def SwapString(str):
     s.append(str[x])
   return ''.join(s).strip()
 
-def GetDriveIdSgIo(dev):
+def GetDriveIdSgIo(dev,data):
   """Return information from interrogating the drive.
 
   This routine issues a SG_IO ioctl to a block device, which
@@ -76,20 +79,20 @@ def GetDriveIdSgIo(dev):
 
   if dev[0] != '/':
     dev = '/dev/' + dev
-  ata_cmd = AtaCmd(opcode=0xa1,  # ATA PASS-THROUGH (12)
-                   protocol=4<<1,  # PIO Data-In
-                   # flags field
+  ata_cmd = AtaCmd(opcode=data['opcode'],  # ATA PASS-THROUGH (12)
+                   protocol=data['protocol'],  # PIO Data-In
+                  # flags field
                    # OFF_LINE = 0 (0 seconds offline)
                    # CK_COND = 1 (copy sense data in response)
                    # T_DIR = 1 (transfer from the ATA device)
                    # BYT_BLOK = 1 (length is in blocks, not bytes)
                    # T_LENGTH = 2 (transfer length in the SECTOR_COUNT field)
-                   flags=0x2e,
-                   features=0, sector_count=0,
-                   lba_low=0, lba_mid=0, lba_high=0,
-                   device=0,
-                   command=0xec,  # IDENTIFY
-                   reserved=0, control=0)
+                   flags=data['flags'],
+                   features=data['features'], sector_count=data['sector_count'],
+                   lba_low=data['lba_low'], lba_mid=data['lba_mid'], lba_high=data['lba_high'],
+                   device=data['device'],
+                   command=data['command'],  # IDENTIFY
+                   reserved=data['reserved'], control=data['control'])
   ASCII_S = 83
   SG_DXFER_FROM_DEV = -3
   sense = ctypes.c_buffer(64)
@@ -112,8 +115,11 @@ def GetDriveIdSgIo(dev):
   if libc.ioctl(fd,SG_IO,value) != 0:
       print "fcntl failed"
       return None
-  if ord(sense[0]) != 0x72 or ord(sense[8]) != 0x9 or ord(sense[9]) != 0xc:
-    return None
+  if ord(sense[0]) == 0x72:
+      print 'Response code: ', hex(ord(sense[0])), 'Sense key: ' , hex(ord(sense[1]) & 0x0f) , " ASC: " , hex(ord(sense[2])), " ASCQ: " , hex(ord(sense[3]))
+  else:
+      print 'Response code: ', hex(ord(sense[0])), 'Sense key: ' , hex(ord(sense[2]) & 0x0f) , " ASC: " , hex(ord(sense[12])), " ASCQ: " , hex(ord(sense[13]))
+  #    return None
   # IDENTIFY format as defined on pg 91 of
   # http://t13.org/Documents/UploadedDocuments/docs2006/D1699r3f-ATA8-ACS.pdf
   serial_no = SwapString(identify[20:40])
@@ -122,27 +128,44 @@ def GetDriveIdSgIo(dev):
   os.close(fd)
   return (serial_no, fw_rev, model)
 
-def ReadBlockSgIo(dev,n_blocks,lba):
+
+
+def ReadBlockSgIo(dev,data):
   if dev[0] != '/':
     dev = '/dev/' + dev
-  ata_cmd = AtaCmd(opcode=0xa1,  # ATA PASS-THROUGH (12)
-                   protocol=6<<1,  # PIO Data-In
+  #ata_cmd = AtaCmd(opcode=0xa1,  # ATA PASS-THROUGH (12)
+   #                protocol=6<<1,  # PIO Data-In
                    # flags field
                    # OFF_LINE = 0 (0 seconds offline)
                    # CK_COND = 1 (copy sense data in response)
                    # T_DIR = 1 (transfer from the ATA device)
                    # BYT_BLOK = 1 (length is in blocks, not bytes)
                    # T_LENGTH = 2 (transfer length in the SECTOR_COUNT field)
-                   flags=0x2e,
-                   features=0, sector_count=n_blocks,
-                   lba_low=lba, lba_mid=(lba >> 8), lba_high=(lba >>16),
-                   device=0x40,
-                   command=0x25,  # IDENTIFY
-                   reserved=0, control=0)
+    #               flags=0x2e,
+     #              features=0, sector_count=n_blocks,
+      #             lba_low=lba, lba_mid=(lba >> 8), lba_high=(lba >>16),
+       #            device=0x40,
+        #           command=0x25,  # IDENTIFY
+         #          reserved=0, control=0)
+  ata_cmd = AtaCmd(opcode=data['opcode'],  # ATA PASS-THROUGH (12)
+                   protocol=data['protocol'],  # PIO Data-In
+                   # flags field
+                   # OFF_LINE = 0 (0 seconds offline)
+                   # CK_COND = 1 (copy sense data in response)
+                   # T_DIR = 1 (transfer from the ATA device)
+                   # BYT_BLOK = 1 (length is in blocks, not bytes)
+                   # T_LENGTH = 2 (transfer length in the SECTOR_COUNT field)
+                   flags=data['flags'],
+                   features=data['features'], sector_count=data['sector_count'],
+                   lba_low=data['lba_low'], lba_mid=data['lba_mid'], lba_high=data['lba_high'],
+                   device=data['device'],
+                   command=data['command'],  # IDENTIFY
+                   reserved=data['reserved'], control=data['control'])
+
   ASCII_S = 83
   SG_DXFER_FROM_DEV = -3
   sense = ctypes.c_buffer(64)
-  identify = ctypes.c_buffer(512*n_blocks)
+  identify = ctypes.c_buffer(512*data['sector_count'])
   sgio = SgioHdr(interface_id=ASCII_S, dxfer_direction=SG_DXFER_FROM_DEV,
                  cmd_len=ctypes.sizeof(ata_cmd),
                  mx_sb_len=ctypes.sizeof(sense), iovec_count=0,
@@ -160,9 +183,12 @@ def ReadBlockSgIo(dev,n_blocks,lba):
   if libc.ioctl(fd,SG_IO,value) != 0:
       print "fcntl failed"
       return None
-  if ord(sense[0]) != 0x72 or ord(sense[8]) != 0x9 or ord(sense[9]) != 0xc:
-    return None
-  print "res: ", SwapString(identify[:])
+  if ord(sense[0]) == 0x72:
+      print 'Response code: ', hex(ord(sense[0])), 'Sense key: ' , hex(ord(sense[1]) & 0x0f) , " ASC: " , hex(ord(sense[2])), " ASCQ: " , hex(ord(sense[3]))
+  else:
+      print 'Response code: ', hex(ord(sense[0])), 'Sense key: ' , hex(ord(sense[2]) & 0x0f) , " ASC: " , hex(ord(sense[12])), " ASCQ: " , hex(ord(sense[13]))
+
+ # print "res: ", SwapString(identify[:])
   return 
 
 
