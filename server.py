@@ -1,4 +1,5 @@
 import socket
+import signal
 import ata
 import threading
 import Queue
@@ -6,6 +7,10 @@ import sys
 
 queue=Queue.Queue()
 sem=threading.Semaphore(0)
+
+def quit_handler(signum, frame):
+    print 'SIG INT received'
+    exit(0)
 
 def work():
     i=1
@@ -27,7 +32,7 @@ def work():
 
 
 def go():
-
+    signal.signal(signal.SIGINT, quit_handler)
     t = threading.Thread(target=work)
     t.start()
 
