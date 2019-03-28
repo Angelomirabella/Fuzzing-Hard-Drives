@@ -11,6 +11,7 @@ stop=False
 
 
 def quit_handler(signum, frame):
+    global stop
     print 'SIG INT received'
     stop = True
     sem.release()
@@ -25,8 +26,10 @@ def work():
         #print 'Test: ', i
         i += 1
         ata_pass_through= queue.get()
-        res = ata.ReadBlockSgIo('/dev/sdb', ata_pass_through)
-     #   print res
+        print ata_pass_through['opcode'], ata_pass_through['protocol'], ata_pass_through['flags'],ata_pass_through['features'],ata_pass_through['sector_count'],ata_pass_through['lba_low'],ata_pass_through['lba_mid'],ata_pass_through['lba_high'],ata_pass_through['device'],ata_pass_through['command'],ata_pass_through['reserved'],ata_pass_through['control']
+        res = ata.ReadBlockSgIo(sys.argv[2], ata_pass_through)
+
+        print res
 
 
 
@@ -35,16 +38,21 @@ def work():
 
 
 def go():
+    global stop
+
+    if len(sys.argv) != 3:
+        print "Usage: sudo python server.py <port> <device>"
+        exit(0)
     signal.signal(signal.SIGINT, quit_handler)
     t = threading.Thread(target=work)
-    t.daemon = True
+#    t.daemon = True
     t.start()
 
     timeout=10 #seconds
     s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
     s.bind(('',int(sys.argv[1])))
     s.listen(5000)
-    s.settimeout(15)
+#    s.settimeout(15)
     print 'Waiting Connections...'
     i=1
 
@@ -63,9 +71,9 @@ def go():
             sem.release()
 
  #           if i == 63:
-  #              for el in raw_data:
-   #                 print hex(ord(el)), 
-        
+ #           for el in raw_data:
+   #             print hex(ord(el)),
+    #        print
         except socket.timeout:
             print 'Timeout expired!'
             stop=True

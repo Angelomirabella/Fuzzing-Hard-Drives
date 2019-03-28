@@ -2,63 +2,59 @@ import sys
 from boofuzz import *
 
 def main():
+
+    if len(sys.argv) != 3:
+        print "Usage: python fuzzer.py <port> <iterations>"
+        exit(0)
+
+
     session = Session(target=Target(connection=SocketConnection("127.0.0.1", int(sys.argv[1]), proto='tcp')))
 
     s_initialize("opcode")
-    s_byte(0xa1) #not fuzzable
-#    s_static("\n")
+    s_byte(0xa1,fuzzable=False) #not fuzzable
 
-#    s_initialize("protocol")
-    s_bit_field(0b00001100,8,name='protocol') #not fuzzable 6<<1  / 4<<1
-#    s_static("\n")
+#    protocol
+#    s_byte(0xc,full_range=True) #not fuzzable 6<<1  / 4<<1
 
- #   s_initialize("flags")
-    s_byte(0x2e) #not fuzzable
-#    s_static("\n")
-  
-    s_byte(0x0) #features
+ #  flags
+#    s_byte(0x2e,full_range=True) #not fuzzable
 
-    s_byte(0x0) #sector_count 
+#    s_byte(0x0,full_range=True) #features
 
-  #  s_initialize("lba_low")
-    s_byte(0x0) 
-#    s_static("\n")
+#    s_byte(0x0,full_range=True) #sector_count
 
-   # s_initialize("lba_mid")
-    s_byte(0x0)
-#    s_static("\n")
+  # lba_low
+#    s_byte(0x0,full_range=True)
 
-    #s_initialize("lba_high")
-    s_byte(0x0)
-#    s_static("\n")
+#   lba_mid
+#    s_byte(0x0,full_range=True)
 
-   # s_initialize("device")
-    s_byte(0x40)
-#    s_static("\n")
+ #  lba_high
+#    s_byte(0x0,full_range=True)
 
-    #s_initialize("command")
-    s_byte(0x25)
-#    s_static("\n")
 
-    #s_initialize("reserved")
-    s_byte(0x0)
-#    s_static("\n")
+#   device
+#    s_byte(0x40,full_range=True)
 
-    #s_initialize("control")
-    s_byte(0)
+    #command
+#    s_byte(0x25,full_range=True)
+#
+    #reserved
+#    s_byte(0x0,full_range=True)
+
+    #control
+#    s_byte(0,full_range=True)
+
+#    s_byte(0xc2e000000000040250000)
+    s_random(0x0c2e000000000040250000,11,11,int(sys.argv[2]))
+
 
     s_static("\n")
 
     session.connect(s_get("opcode"))
-    #session.connect(s_get("opcode"), s_get("protocol"))
-    #session.connect(s_get("protocol"), s_get("flags"))
-    #session.connect(s_get("flags"), s_get("lba_low"))
-    #session.connect(s_get("lba_low"), s_get("lba_mid"))
-    #session.connect(s_get("lba_mid"), s_get("lba_high"))
-    #session.connect(s_get("lba_high"), s_get("device"))
-    #session.connect(s_get("device"), s_get("command"))
-    #session.connect(s_get("command"), s_get("reserved"))
-    #session.connect(s_get("reserved"), s_get("control"))
+
+
+
     session.fuzz()
 
 if __name__ == "__main__":
