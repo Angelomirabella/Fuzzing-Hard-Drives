@@ -1,6 +1,5 @@
 import ctypes
 import os
-import fcntl
 class AtaCmd(ctypes.Structure):
   """ATA Command Pass-Through
      http://www.t10.org/ftp/t10/document.04/04-262r8.pdf"""
@@ -115,10 +114,10 @@ def GetDriveIdSgIo(dev,data):
   if libc.ioctl(fd,SG_IO,value) != 0:
       print "fcntl failed"
       return None
-  if ord(sense[0]) == 0x72:
-      print 'Response code: ', hex(ord(sense[0])), 'Sense key: ' , hex(ord(sense[1]) & 0x0f) , " ASC: " , hex(ord(sense[2])), " ASCQ: " , hex(ord(sense[3]))
+  if ord(sense[0] )  & 0xef == 0x72:
+      res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[1]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[2])) + " ASCQ: " + "0x{:02x}".format(ord(sense[3]))
   else:
-      print 'Response code: ', hex(ord(sense[0])), 'Sense key: ' , hex(ord(sense[2]) & 0x0f) , " ASC: " , hex(ord(sense[12])), " ASCQ: " , hex(ord(sense[13]))
+      res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[2]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[12])) + " ASCQ: " + "0x{:02x}".format(ord(sense[13]))
   #    return None
   # IDENTIFY format as defined on pg 91 of
   # http://t13.org/Documents/UploadedDocuments/docs2006/D1699r3f-ATA8-ACS.pdf
@@ -126,7 +125,7 @@ def GetDriveIdSgIo(dev,data):
   fw_rev = SwapString(identify[46:54])
   model = SwapString(identify[54:93])
   os.close(fd)
-  return (serial_no, fw_rev, model)
+  return res
 
 
 
@@ -183,13 +182,13 @@ def ReadBlockSgIo(dev,data):
   if libc.ioctl(fd,SG_IO,value) != 0:
       print "fcntl failed"
       return None
-  if ord(sense[0]) == 0x72:
-      print 'Response code: ', hex(ord(sense[0])), 'Sense key: ' , hex(ord(sense[1]) & 0x0f) , " ASC: " , hex(ord(sense[2])), " ASCQ: " , hex(ord(sense[3]))
+  if ord(sense[0]) & 0xef == 0x72:
+      res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[1]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[2])) + " ASCQ: " + "0x{:02x}".format(ord(sense[3]))
   else:
-      print 'Response code: ', hex(ord(sense[0])), 'Sense key: ' , hex(ord(sense[2]) & 0x0f) , " ASC: " , hex(ord(sense[12])), " ASCQ: " , hex(ord(sense[13]))
-
+      res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[2]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[12])) + " ASCQ: " + "0x{:02x}".format(ord(sense[13]))
+  os.close(fd)
  # print "res: ", SwapString(identify[:])
-  return 
+  return res
 
 
 #serial_no,fw_rev,model=GetDriveIdSgIo("/dev/sda")
