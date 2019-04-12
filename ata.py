@@ -190,10 +190,3 @@ def ReadBlockSgIo(dev,data):
  # print "res: ", SwapString(identify[:])
   return res
 
-
-#serial_no,fw_rev,model=GetDriveIdSgIo("/dev/sda")
-#print "serial number: ", serial_no
-#print "firmware revision: ", fw_rev
-#print "model: " ,model
-#print "--- after ---"
-#ReadBlockSgIo("/dev/sda",1,1)

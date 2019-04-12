@@ -44,7 +44,7 @@ class Vm(threading.Thread):
         #print 'post res, recv alive'
         alive=sock.recv(1)
         #print 'alive 1: ' , alive
-        if int(alive) == 1:
+        if int(alive) > 0 :
             self.out_ok.write("Command: " + cmd+"\n")
             self.out_ok.write(res+"\n")
         else: #ssd dead - Try to unplug and replug
@@ -80,56 +80,67 @@ class Vm(threading.Thread):
 
     def callback(self,target,fuzz_data_logger,session,*args,**kwargs):
 
-
-        cmd= ''
+        # print 'HELLOOOO'
+        cmd = ''
         while len(cmd) < CMD_LEN:
             more = target.recv(CMD_LEN - len(cmd))
+            print more, len(more)
             if not more:
                 raise EOFError()
             cmd += more
 
-
-        res= ''
+        # print 'post cmd'
+        res = ''
         while len(res) < RES_LEN:
+            # print 'pre result'
             more = target.recv(RES_LEN - len(res))
+            print more, len(more)
+            # time.sleep(3)
             if not more:
                 raise EOFError()
             res += more
 
-        alive=target.recv(1)
+        if all([el == b'\x00' for el in res]):  # ssd dead for ever
+            # print 'SSD DEAD ' , res
+            self.out_ok.write("SSD DEAD \n")
+            self.out_bad.write("SSD DEAD \n")
 
-        if int(alive) == 1:
-            self.out_ok.write("Command: " + cmd+"\n")
-            self.out_ok.write(res+"\n")
-        else: #ssd dead - Try to unplug and replug
-            self.out_bad.write("Command: " + cmd+"\n")
-            self.out_bad.write(res+"\n")
+            return 0
 
-            os.system("ykushcmd -d " + self.ykush_port)
+        # print 'post res, recv alive'
+        alive = target.recv(1)
+        # print 'alive 1: ' , alive
+        if int(alive) > 0 :
+            self.out_ok.write("Command: " + cmd + "\n")
+            self.out_ok.write(res + "\n")
+        else:  # ssd dead - Try to unplug and replug
+            #   print 'DEAD'
+            self.out_bad.write("Command: " + cmd + "\n")
+            self.out_bad.write(res + "\n")
+
+            subprocess.call(["ykushcmd -d " + self.ykush_port], shell=True)
+
             time.sleep(0.5)
-            os.system("ykushcmd -u " + self.ykush_port)
+            subprocess.call(["ykushcmd -u " + self.ykush_port], shell=True)
             time.sleep(2)
 
-            target.send(1)
+            target.send(b'1')
 
-            alive=target.recv(1)
+            alive = target.recv(1)
+            #    print 'alive 2: ', alive
+            if int(alive) == 0:  # ssd dead - shut down the vm and power on again
 
-            if int(alive) == 0 : #ssd dead - shut down the vm and power on again
+                subprocess.call(["ykushcmd -d " + self.ykush_port], shell=True)
+                subprocess.call(['vagrant halt ' + self.id + ' --force'], shell=True)
 
-                os.system("ykushcmd -d " + self.ykush_port)
-
-                os.system('vagrant halt ' + self.id + ' --force')
                 time.sleep(0.5)
-                os.system('vagrant up ' + self.id + '--provision')
+                subprocess.call(['vagrant up ' + self.id + ' --provision'], stdout=subprocess.PIPE, shell=True)
 
-                os.system("ykushcmd -u " + self.ykush_port)
+                subprocess.call(["ykushcmd -u " + self.ykush_port], shell=True)
                 time.sleep(2)
 
 
-
-        return
-
-
+        return 1
 
     def __init__(self,option,line,filename=None):
         threading.Thread.__init__(self)

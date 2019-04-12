@@ -129,7 +129,7 @@ def go_vm():
             proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] + " | wc -l"], stdout=subprocess.PIPE, shell=True)
             (out, err) = proc.communicate()
      #       fd.write (out)
-            if int(out)==1:
+            if int(out)>0:
                 break
             else:
       #          fd.write('second loop\n')
@@ -158,7 +158,6 @@ def go_vm():
         proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] + " | wc -l"], stdout=subprocess.PIPE, shell=True)
 
         (out, err) = proc.communicate()
-        print 'First out: ', out
         client_s.sendall(out[0]) #if 0 ssd is dead - Try to unplug and replug
 
         if int(out) == 0:
