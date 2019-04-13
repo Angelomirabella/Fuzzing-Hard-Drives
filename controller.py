@@ -9,7 +9,7 @@ def main():
         exit(0)
 
 
-    session = Session(target=Target(connection=SocketConnection("127.0.0.1", int(sys.argv[2]), proto='tcp')))
+    session = Session(target=Target(connection=SocketConnection("127.0.0.1", int(sys.argv[2]), proto='tcp', recv_timeout=600,send_timeout=600)))
 
     s_initialize("ata_pass_through")
     s_byte(0xa1,fuzzable=False) #not fuzzable
@@ -35,8 +35,8 @@ def go_vm():
     machines=[]
     with open(input) as fd:
         for line in fd:
+          #  print line.split()
             machine=vm.Vm(sys.argv[1],line.split())
-            print machine.id, line
             machines.append(machine)
             machine.start()
 

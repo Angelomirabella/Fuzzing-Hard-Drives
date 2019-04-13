@@ -69,7 +69,7 @@ class Vm(threading.Thread):
 
 
                 time.sleep(0.5)
-                subprocess.call(['vagrant up ' + self.id + ' --provision'], stdout=subprocess.PIPE,  shell=True)
+                subprocess.call(['vagrant up ' + self.id + ' --provision'], stdout=None,  shell=True)
 
                 subprocess.call(["ykushcmd -u " + self.ykush_port],  shell=True)
                 time.sleep(2)
@@ -134,7 +134,7 @@ class Vm(threading.Thread):
                 subprocess.call(['vagrant halt ' + self.id + ' --force'], shell=True)
 
                 time.sleep(0.5)
-                subprocess.call(['vagrant up ' + self.id + ' --provision'], stdout=subprocess.PIPE, shell=True)
+                subprocess.call(['vagrant up ' + self.id + ' --provision'], stdout=None, shell=True)
 
                 subprocess.call(["ykushcmd -u " + self.ykush_port], shell=True)
                 time.sleep(2)
@@ -144,7 +144,7 @@ class Vm(threading.Thread):
 
     def __init__(self,option,line,filename=None):
         threading.Thread.__init__(self)
-
+      #  print line
         self.id= line[0]
         self.dst_port=line[1]
         self.ykush_port= line[2]
@@ -159,7 +159,7 @@ class Vm(threading.Thread):
 
     def live_init(self,line):
         self.iterations=line[3]
-        self.target=Target(connection=SocketConnection("127.0.0.1", int(self.dst_port), proto='tcp'))
+        self.target=Target(connection=SocketConnection("127.0.0.1", int(self.dst_port), proto='tcp', recv_timeout=600,send_timeout=600))
         self.session=Session(target=self.target)
         self.session.register_post_test_case_callback(self.callback)
         self.out_ok=open("./output/"+str(self.id)+"_good_commands.txt","w")
