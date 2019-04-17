@@ -51,28 +51,7 @@ class Vm(threading.Thread):
          #   print 'DEAD'
             self.out_bad.write("Command: " + cmd+"\n")
             self.out_bad.write(res+"\n")
-
-            subprocess.call(["ykushcmd -d " + self.ykush_port], shell=True)
-
-            time.sleep(0.5)
-            subprocess.call(["ykushcmd -u " + self.ykush_port], shell=True)
-            time.sleep(2)
-
-            sock.send(b'1')
-
-            alive=sock.recv(1)
-        #    print 'alive 2: ', alive
-            if int(alive) == 0 : #ssd dead - shut down the vm and power on again
-
-                subprocess.call(["ykushcmd -d " + self.ykush_port], shell=True)
-                subprocess.call(['vagrant halt ' + self.id + ' --force'],  shell=True)
-
-
-                time.sleep(0.5)
-                subprocess.call(['vagrant up ' + self.id + ' --provision'], stdout=None,  shell=True)
-
-                subprocess.call(["ykushcmd -u " + self.ykush_port],  shell=True)
-                time.sleep(2)
+            self.restart(sock)
 
         sock.shutdown(socket.SHUT_RDWR)
         sock.close()
@@ -80,44 +59,65 @@ class Vm(threading.Thread):
 
     def callback(self,target,fuzz_data_logger,session,*args,**kwargs):
 
-        # print 'HELLOOOO'
-        cmd = ''
-        while len(cmd) < CMD_LEN:
-            more = target.recv(CMD_LEN - len(cmd))
-            print more, len(more)
-            if not more:
-                raise EOFError()
-            cmd += more
+        try:
+            cmd = ''
+            while len(cmd) < CMD_LEN:
+                more = target.recv(CMD_LEN - len(cmd))
+                print more, len(more)
+                if not more:
+                  #  exit(-1)
+                    raise EOFError()
+                cmd += more
 
-        # print 'post cmd'
-        res = ''
-        while len(res) < RES_LEN:
-            # print 'pre result'
-            more = target.recv(RES_LEN - len(res))
-            print more, len(more)
-            # time.sleep(3)
-            if not more:
-                raise EOFError()
-            res += more
+            # print 'post cmd'
+            res = ''
+            while len(res) < RES_LEN:
+                # print 'pre result'
+                more = target.recv(RES_LEN - len(res))
+                print more, len(more)
+                # time.sleep(3)
+                if not more:
+                   # exit(-1)
+                    raise EOFError()
+                res += more
 
-        if all([el == b'\x00' for el in res]):  # ssd dead for ever
-            # print 'SSD DEAD ' , res
-            self.out_ok.write("SSD DEAD \n")
-            self.out_bad.write("SSD DEAD \n")
+            if all([el == b'\x00' for el in res]):  # ssd dead for ever
+                # print 'SSD DEAD ' , res
+                self.out_ok.write("SSD DEAD \n")
+                self.out_bad.write("SSD DEAD \n")
 
-            return 0
+                return 0
 
-        # print 'post res, recv alive'
-        alive = target.recv(1)
-        # print 'alive 1: ' , alive
-        if int(alive) > 0 :
-            self.out_ok.write("Command: " + cmd + "\n")
-            self.out_ok.write(res + "\n")
-        else:  # ssd dead - Try to unplug and replug
-            #   print 'DEAD'
-            self.out_bad.write("Command: " + cmd + "\n")
-            self.out_bad.write(res + "\n")
+            # print 'post res, recv alive'
+            alive = target.recv(1)
+            # print 'alive 1: ' , alive
+            if int(alive) > 0 :
+                self.out_ok.write("Command: " + cmd + "\n")
+                self.out_ok.write(res + "\n")
+            else:  # ssd dead - Try to unplug and replug
+                print 'DEAD'
+                self.out_bad.write("Command: " + cmd + "\n")
+                self.out_bad.write(res + "\n")
+                self.restart(target)
 
+        except EOFError:
+
+            if len(cmd) > 0 :
+                self.out_bad.write("Command: " + cmd + " Connection resetted\n")
+                if len(res)> 0 :
+                    self.out_bad.write(res + "\n")
+                else:
+                    self.out_bad.write("No res\n")
+            else:
+                self.out_bad.write("Command unknown Connection resetted\n")
+            self.restart(target,1)
+
+        return 1
+
+    def restart(self,target,skip=0):
+
+        alive=1
+        if skip==0:
             subprocess.call(["ykushcmd -d " + self.ykush_port], shell=True)
 
             time.sleep(0.5)
@@ -127,20 +127,20 @@ class Vm(threading.Thread):
             target.send(b'1')
 
             alive = target.recv(1)
-            #    print 'alive 2: ', alive
-            if int(alive) == 0:  # ssd dead - shut down the vm and power on again
 
-                subprocess.call(["ykushcmd -d " + self.ykush_port], shell=True)
-                subprocess.call(['vagrant halt ' + self.id + ' --force'], shell=True)
+        #    print 'alive 2: ', alive
+        if int(alive) == 0 or skip==1:  # ssd dead - shut down the vm and power on again
 
-                time.sleep(0.5)
-                subprocess.call(['vagrant up ' + self.id + ' --provision'], stdout=None, shell=True)
+            subprocess.call(["ykushcmd -d " + self.ykush_port], shell=True)
+            subprocess.call(['vagrant halt ' + self.id + ' --force'], shell=True)
 
-                subprocess.call(["ykushcmd -u " + self.ykush_port], shell=True)
-                time.sleep(2)
+            time.sleep(0.5)
+            subprocess.call(['vagrant up ' + self.id + ' --provision'], stdout=None, shell=True)
+
+            subprocess.call(["ykushcmd -u " + self.ykush_port], shell=True)
+            time.sleep(2)
 
 
-        return 1
 
     def __init__(self,option,line,filename=None):
         threading.Thread.__init__(self)
@@ -189,22 +189,21 @@ class Vm(threading.Thread):
             self.session.connect(s_get("ata_pass_through - " + self.id))
             self.session.fuzz()
         elif self.option=='-r':
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-            s.connect(('localhost', int(self.dst_port)))
             with open(self.commands) as fd:
                 for line in fd:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.connect(('localhost', int(self.dst_port)))
                     line=line[:len(line)-1]
                     line+= "a1"
-           #         print line
+                    print line
                     cmd=line.decode('hex')
             #        print len(cmd)
                     s.sendall(cmd)
                     res=self.off_callback(s)
                     if res == 0:
                         break
-                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    s.connect(('localhost', int(self.dst_port)))
+
 
         self.out_ok.close()
         self.out_bad.close()
