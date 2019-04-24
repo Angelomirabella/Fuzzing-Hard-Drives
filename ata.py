@@ -179,13 +179,16 @@ def ReadBlockSgIo(dev,data):
   libc=ctypes.CDLL('libc.so.6')
   fd=os.open(dev,os.O_RDWR,0666)
   value=ctypes.c_uint64(ctypes.addressof(sgio))
+  res=''
   if libc.ioctl(fd,SG_IO,value) != 0:
-      print "fcntl failed"
-      return None
+      #print  "fcntl failed\n"
+      return b'\x01' * 56
   if ord(sense[0]) & 0xef == 0x72:
       res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[1]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[2])) + " ASCQ: " + "0x{:02x}".format(ord(sense[3]))
   else:
       res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[2]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[12])) + " ASCQ: " + "0x{:02x}".format(ord(sense[13]))
+
+
   os.close(fd)
  # print "res: ", SwapString(identify[:])
   return res

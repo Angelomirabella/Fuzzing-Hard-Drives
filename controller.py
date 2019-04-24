@@ -35,7 +35,7 @@ def go_vm():
     machines=[]
     with open(input) as fd:
         for line in fd:
-          #  print line.split()
+            print line.split()
             machine=vm.Vm(sys.argv[1],line.split())
             machines.append(machine)
             machine.start()

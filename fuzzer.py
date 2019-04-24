@@ -91,75 +91,58 @@ def go_vm():
     s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
     s.bind(('',int(sys.argv[2])))
     s.listen(5)
-    print 'Waiting Connections...'
     i=1
 
-    fd=open('ciaomamma.txt','w')
     while True:
         client_s, addr = s.accept()
         raw_data = ''
+
         while len(raw_data) < ATA_PASS_THROUGH_LEN+1:
             more = client_s.recv((ATA_PASS_THROUGH_LEN+1) - len(raw_data))
             if not more:
                 raise EOFError()
             raw_data += more
 
+
         ata_pass_through = {'opcode': int(ord(raw_data[0])), 'protocol': int(ord(raw_data[1])),
                             'flags': int(ord(raw_data[2])), 'features': int(ord(raw_data[3]))
             , 'sector_count': int(ord(raw_data[4])), 'lba_low': int(ord(raw_data[5])), 'lba_mid': int(ord(raw_data[6])),
-                            'lba_high': int(ord(raw_data[7]))
+                           'lba_high': int(ord(raw_data[7]))
             , 'device': int(ord(raw_data[8])), 'command': int(ord(raw_data[9])), 'reserved': int(ord(raw_data[10])),
                             'control': int(ord(raw_data[11]))}
 
         cmd=""
         for i in range(ATA_PASS_THROUGH_LEN):
-            #print hex(ord(raw_data[i])),
             cmd += "0x{:02x}".format(ord(raw_data[i]))
             cmd += " "
-        print cmd
-        fd.write(cmd+"\n")
         client_s.sendall(cmd)
-
-
         cnt=0
-        fd.write('count: ' + str(cnt) + '\n')
-
         while  True:
-    #        fd.write('in loop\n')
             proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] + " | wc -l"], stdout=subprocess.PIPE, shell=True)
             (out, err) = proc.communicate()
-            fd.write (out)
             if int(out)>0:
                 break
             else:
-      #          fd.write('second loop\n')
                 time.sleep(1)
-       #         fd.write('after sleep\n')
-        #        fd.write('count: ' + str(cnt) + '\n')
                 cnt= cnt + 1
-         #       fd.write('count: ' + str(cnt) + '\n')
                 if cnt == 300: #ssd is not recovering - shut down everything
-          #          fd.write("SSD DEAD \n")
                     client_s.sendall(b'\x00' * 56) #56 = RES_LEN
                     client_s.shutdown(socket.SHUT_RDWR)
                     client_s.close()
-           #         fd.close()
                     exit(-1)
 
-
-        #fd.write("\n")
-        fd.write('out: ' + out + "\n")
-        res = ata.ReadBlockSgIo("/dev/"+sys.argv[3], ata_pass_through)
-        print res
-        fd.write(res+"\n")
+        try:
+            res = ata.ReadBlockSgIo("/dev/"+sys.argv[3], ata_pass_through)
+        except:
+            res=b'\x01'*56
 
         client_s.sendall(res)
+
 
         proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] + " | wc -l"], stdout=subprocess.PIPE, shell=True)
 
         (out, err) = proc.communicate()
         client_s.sendall(out[0]) #if 0 ssd is dead - Try to unplug and replug
-        print 'First out ', out
         if int(out) == 0:
             client_s.recv(1)
             for i in range(5):
@@ -168,18 +151,11 @@ def go_vm():
                 if int(out)==1:
                     break
                 time.sleep(1)
-            print 'Second out ', out
             client_s.sendall(out[0])
             if int(out) == 0:  # ssd still disconnected - ask controller to shut down the vm and exit the process otherwise continue
                 client_s.shutdown(socket.SHUT_RDWR)
                 client_s.close()
-         #       fd.close()
                 exit(-1)
-
-
-        print 'Done'
-        fd.write("Done\n")
-
         i += 1
 
 

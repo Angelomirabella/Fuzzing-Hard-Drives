@@ -13,6 +13,7 @@ def main():
     with open(sys.argv[1]) as fd:
         for line in fd:
             proc=subprocess.Popen(['python controller.py -proc ' + line], stdout=None, shell=True)
+
             #print line
 
 

@@ -21,7 +21,7 @@ class Vm(threading.Thread):
                 raise EOFError()
             cmd += more
 
-       # print 'post cmd'
+        print 'post cmd'
         res= ''
         while len(res) < RES_LEN:
             #print 'pre result'
@@ -31,7 +31,7 @@ class Vm(threading.Thread):
             if not more:
                raise EOFError()
             res += more
-
+        print 'post res'
         if all([el==b'\x00' for el in res]): #ssd dead for ever
             #print 'SSD DEAD ' , res
             self.out_ok.write("SSD DEAD \n")
@@ -48,9 +48,9 @@ class Vm(threading.Thread):
             self.out_ok.write("Command: " + cmd+"\n")
             self.out_ok.write(res+"\n")
         else: #ssd dead - Try to unplug and replug
-         #   print 'DEAD'
             self.out_bad.write("Command: " + cmd+"\n")
             self.out_bad.write(res+"\n")
+            self.out_bad.flush()
             self.restart(sock)
 
         sock.shutdown(socket.SHUT_RDWR)
@@ -63,42 +63,37 @@ class Vm(threading.Thread):
             cmd = ''
             while len(cmd) < CMD_LEN:
                 more = target.recv(CMD_LEN - len(cmd))
-                print more, len(more)
+                print more
                 if not more:
-                  #  exit(-1)
                     raise EOFError()
                 cmd += more
 
-            # print 'post cmd'
             res = ''
             while len(res) < RES_LEN:
-                # print 'pre result'
                 more = target.recv(RES_LEN - len(res))
-                print more, len(more)
-                # time.sleep(3)
+                print more
                 if not more:
-                   # exit(-1)
                     raise EOFError()
                 res += more
 
             if all([el == b'\x00' for el in res]):  # ssd dead for ever
-                # print 'SSD DEAD ' , res
                 self.out_ok.write("SSD DEAD \n")
+                self.out_ok.flush()
                 self.out_bad.write("SSD DEAD \n")
+                self.out_bad.flush()
 
                 return 0
 
-            # print 'post res, recv alive'
             alive = target.recv(1)
-            # print 'alive 1: ' , alive
-            if int(alive) > 0 :
-                self.out_ok.write("Command: " + cmd + "\n")
-                self.out_ok.write(res + "\n")
-            else:  # ssd dead - Try to unplug and replug
-                print 'DEAD'
+            if int(alive) <=0 or all([el == b'\x01' for el in res]) :  # ssd dead - Try to unplug and replug
                 self.out_bad.write("Command: " + cmd + "\n")
                 self.out_bad.write(res + "\n")
+                self.out_bad.flush()
                 self.restart(target)
+            elif int(alive) > 0:
+                self.out_ok.write("Command: " + cmd + "\n")
+                self.out_ok.write(res + "\n")
+                self.out_ok.flush()
 
         except EOFError:
 
@@ -110,7 +105,10 @@ class Vm(threading.Thread):
                     self.out_bad.write("No res\n")
             else:
                 self.out_bad.write("Command unknown Connection resetted\n")
+
+            self.out_bad.flush()
             self.restart(target,1)
+
 
         return 1
 
@@ -125,17 +123,14 @@ class Vm(threading.Thread):
             time.sleep(2)
 
             target.send(b'1')
-
             alive = target.recv(1)
-
-        #    print 'alive 2: ', alive
         if int(alive) == 0 or skip==1:  # ssd dead - shut down the vm and power on again
 
             subprocess.call(["ykushcmd -d " + self.ykush_port], shell=True)
             subprocess.call(['vagrant halt ' + self.id + ' --force'], shell=True)
 
             time.sleep(0.5)
-            subprocess.call(['vagrant up ' + self.id + ' --provision'], stdout=None, shell=True)
+            subprocess.call(['vagrant up ' + self.id + ' --provision'], stdout=subprocess.PIPE, shell=True)
 
             subprocess.call(["ykushcmd -u " + self.ykush_port], shell=True)
             time.sleep(2)
@@ -200,6 +195,7 @@ class Vm(threading.Thread):
                     cmd=line.decode('hex')
             #        print len(cmd)
                     s.sendall(cmd)
+                    print 'sent'
                     res=self.off_callback(s)
                     if res == 0:
                         break
