@@ -8,7 +8,11 @@ import subprocess
 import os
 import time
 
+RES_LEN=104 #56
 ATA_PASS_THROUGH_LEN=12
+serial_no_origin='14380D4A644F'
+fw_rev_origin='MU01'
+model_origin='Crucial_CT256MX100SSD1'
 
 queue=Queue.Queue()
 sem=threading.Semaphore(0)
@@ -126,7 +130,7 @@ def go_vm():
                 time.sleep(1)
                 cnt= cnt + 1
                 if cnt == 300: #ssd is not recovering - shut down everything
-                    client_s.sendall(b'\x00' * 56) #56 = RES_LEN
+                    client_s.sendall(b'\x00' * RES_LEN) #56 = RES_LEN
                     client_s.shutdown(socket.SHUT_RDWR)
                     client_s.close()
                     exit(-1)
@@ -134,7 +138,7 @@ def go_vm():
         try:
             res = ata.ReadBlockSgIo("/dev/"+sys.argv[3], ata_pass_through)
         except:
-            res=b'\x01'*56
+            res=b'\x01'*RES_LEN
 
         client_s.sendall(res)
 
@@ -142,8 +146,8 @@ def go_vm():
         proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] + " | wc -l"], stdout=subprocess.PIPE, shell=True)
 
         (out, err) = proc.communicate()
-        client_s.sendall(out[0]) #if 0 ssd is dead - Try to unplug and replug
-        if int(out) == 0:
+        if int(out) == 0: #if 0 ssd is dead - Try to unplug and replug
+            client_s.sendall(out[0])
             client_s.recv(1)
             for i in range(5):
                 proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] + " | wc -l"], stdout=subprocess.PIPE, shell=True)
@@ -156,6 +160,17 @@ def go_vm():
                 client_s.shutdown(socket.SHUT_RDWR)
                 client_s.close()
                 exit(-1)
+
+        else: #  out > 0 BUT  double-check with Identify command
+            #55555print 'Verify Identify'
+            serial_no,fw_rev,model=ata.GetDriveIdSgIo_Origin(sys.argv[3])
+            if serial_no!=serial_no_origin or fw_rev != fw_rev_origin or model != model_origin: #cmd was somehow bad
+                client_s.sendall(0xff)
+               # print 'bad'
+            else:
+                client_s.sendall(out[0])
+              #  print 'good'
+
         i += 1
 
 

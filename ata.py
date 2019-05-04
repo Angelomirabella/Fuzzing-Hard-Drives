@@ -1,5 +1,8 @@
 import ctypes
 import os
+import time
+import datetime
+
 class AtaCmd(ctypes.Structure):
   """ATA Command Pass-Through
      http://www.t10.org/ftp/t10/document.04/04-262r8.pdf"""
@@ -102,7 +105,7 @@ def GetDriveIdSgIo(dev,data):
                  dxfer_len=ctypes.sizeof(identify),
                  dxferp=ctypes.cast(identify, ctypes.c_void_p),
                  cmdp=ctypes.addressof(ata_cmd),
-                 sbp=ctypes.cast(sense, ctypes.c_void_p), timeout=3000,
+                 sbp=ctypes.cast(sense, ctypes.c_void_p), timeout=0,
                  flags=0, pack_id=0, usr_ptr=None, status=0, masked_status=0,
                  msg_status=0, sb_len_wr=0, host_status=0, driver_status=0,
                  resid=0, duration=0, info=0)
@@ -171,25 +174,306 @@ def ReadBlockSgIo(dev,data):
                  dxfer_len=ctypes.sizeof(identify),
                  dxferp=ctypes.cast(identify, ctypes.c_void_p),
                  cmdp=ctypes.addressof(ata_cmd),
-                 sbp=ctypes.cast(sense, ctypes.c_void_p), timeout=3000,
+                 sbp=ctypes.cast(sense, ctypes.c_void_p), timeout=0,
                  flags=0, pack_id=0, usr_ptr=None, status=0, masked_status=0,
                  msg_status=0, sb_len_wr=0, host_status=0, driver_status=0,
                  resid=0, duration=0, info=0)
   SG_IO = 0x2285  # <scsi/sg.h>
   libc=ctypes.CDLL('libc.so.6')
+
   fd=os.open(dev,os.O_RDWR,0666)
   value=ctypes.c_uint64(ctypes.addressof(sgio))
   res=''
+  ts1 = time.time()
+  str1 = datetime.datetime.fromtimestamp(ts1).strftime('%Y-%m-%d %H:%M:%S:%f')
   if libc.ioctl(fd,SG_IO,value) != 0:
       #print  "fcntl failed\n"
       return b'\x01' * 56
+
+
   if ord(sense[0]) & 0xef == 0x72:
       res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[1]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[2])) + " ASCQ: " + "0x{:02x}".format(ord(sense[3]))
   else:
       res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[2]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[12])) + " ASCQ: " + "0x{:02x}".format(ord(sense[13]))
 
+  ts2 = time.time()
+  str2 = datetime.datetime.fromtimestamp(ts2).strftime('%H:%M:%S:%f')
 
+  res='[' + str1 + " -> " + str2 + "] " + res
+ # for el in identify:
+   #   print el,
+ # print
   os.close(fd)
  # print "res: ", SwapString(identify[:])
   return res
+
+
+def GetDriveIdSgIo_Origin(dev):
+
+
+  if dev[0] != '/':
+    dev = '/dev/' + dev
+  ata_cmd = AtaCmd(opcode=0xa1,  # ATA PASS-THROUGH (12)
+                   protocol=4<<1,  # PIO Data-In
+                   # flags field
+                   # OFF_LINE = 0 (0 seconds offline)
+                   # CK_COND = 1 (copy sense data in response)
+                   # T_DIR = 1 (transfer from the ATA device)
+                   # BYT_BLOK = 1 (length is in blocks, not bytes)
+                   # T_LENGTH = 2 (transfer length in the SECTOR_COUNT field)
+                   flags=0x2e,
+                   features=0, sector_count=0,
+                   lba_low=0, lba_mid=0, lba_high=0,
+                   device=0,
+                   command=0xec,  # IDENTIFY
+                   reserved=0, control=0)
+  ASCII_S = 83
+  SG_DXFER_FROM_DEV = -3
+  sense = ctypes.c_buffer(64)
+  identify = ctypes.c_buffer(512)
+  sgio = SgioHdr(interface_id=ASCII_S, dxfer_direction=SG_DXFER_FROM_DEV,
+                 cmd_len=ctypes.sizeof(ata_cmd),
+                 mx_sb_len=ctypes.sizeof(sense), iovec_count=0,
+                 dxfer_len=ctypes.sizeof(identify),
+                 dxferp=ctypes.cast(identify, ctypes.c_void_p),
+                 cmdp=ctypes.addressof(ata_cmd),
+                 sbp=ctypes.cast(sense, ctypes.c_void_p), timeout=0,
+                 flags=0, pack_id=0, usr_ptr=None, status=0, masked_status=0,
+                 msg_status=0, sb_len_wr=0, host_status=0, driver_status=0,
+                 resid=0, duration=0, info=0)
+  SG_IO = 0x2285  # <scsi/sg.h>
+
+
+  libc = ctypes.CDLL('libc.so.6')
+  fd = os.open(dev, os.O_RDWR, 0666)
+  value = ctypes.c_uint64(ctypes.addressof(sgio))
+  if libc.ioctl(fd, SG_IO, value) != 0:
+      print "fcntl failed"
+      return None
+
+
+
+  serial_no = SwapString(identify[20:40])
+  fw_rev = SwapString(identify[46:53])
+  model = SwapString(identify[54:93])
+  return  (serial_no, fw_rev, model)
+
+
+def ReadBlockSgIo_Origin(dev,lba,sectors):
+  if dev[0] != '/':
+    dev = '/dev/' + dev
+  ata_cmd = AtaCmd(opcode=0xa1,  # ATA PASS-THROUGH (12)
+                   protocol=0x0d,  # PIO Data-In
+                   # flags field
+                   # OFF_LINE = 0 (0 seconds offline)
+                   # CK_COND = 1 (copy sense data in response)
+                   # T_DIR = 1 (transfer from the ATA device)
+                   # BYT_BLOK = 1 (length is in blocks, not bytes)
+                   # T_LENGTH = 2 (transfer length in the SECTOR_COUNT field)
+                   flags=0x2e,
+                   features=0, sector_count=sectors ,
+                   lba_low=lba, lba_mid=(lba>>8), lba_high=(lba>>16),
+                   device=0x40,
+                   command=0x25,  # READ
+                   reserved=0, control=0)
+  ASCII_S = 83
+  SG_DXFER_FROM_DEV = -3
+  sense = ctypes.c_buffer(64)
+  identify = ctypes.c_buffer(512 * sectors)
+  sgio = SgioHdr(interface_id=ASCII_S, dxfer_direction=SG_DXFER_FROM_DEV,
+                 cmd_len=ctypes.sizeof(ata_cmd),
+                 mx_sb_len=ctypes.sizeof(sense), iovec_count=0,
+                 dxfer_len=ctypes.sizeof(identify),
+                 dxferp=ctypes.cast(identify, ctypes.c_void_p),
+                 cmdp=ctypes.addressof(ata_cmd),
+                 sbp=ctypes.cast(sense, ctypes.c_void_p), timeout=0,
+                 flags=0, pack_id=0, usr_ptr=None, status=0, masked_status=0,
+                 msg_status=0, sb_len_wr=0, host_status=0, driver_status=0,
+                 resid=0, duration=0, info=0)
+  SG_IO = 0x2285  # <scsi/sg.h>
+
+
+  libc = ctypes.CDLL('libc.so.6')
+  fd = os.open(dev, os.O_RDWR, 0666)
+  value = ctypes.c_uint64(ctypes.addressof(sgio))
+  if libc.ioctl(fd, SG_IO, value) != 0:
+      print "fcntl failed"
+      return None
+
+  if ord(sense[0]) & 0xef == 0x72:
+      res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[1]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[2])) + " ASCQ: " + "0x{:02x}".format(ord(sense[3]))
+  else:
+      res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[2]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[12])) + " ASCQ: " + "0x{:02x}".format(ord(sense[13]))
+
+  for el in identify:
+      print el,
+  print
+  print res
+  return
+
+def WriteBlockSgIo_Origin(dev,lba,sectors,data):
+  if dev[0] != '/':
+    dev = '/dev/' + dev
+  ata_cmd = AtaCmd(opcode=0xa1,  # ATA PASS-THROUGH (12)
+                   protocol=0x0d,  # PIO Data-In
+                   # flags field
+                   # OFF_LINE = 0 (0 seconds offline)
+                   # CK_COND = 1 (copy sense data in response)
+                   # T_DIR = 1 (transfer from the ATA device)
+                   # BYT_BLOK = 1 (length is in blocks, not bytes)
+                   # T_LENGTH = 2 (transfer length in the SECTOR_COUNT field)
+                   flags=0x26,
+                   features=0, sector_count=sectors ,
+                   lba_low=lba, lba_mid=(lba>>8), lba_high=(lba>>16),
+                   device=0x40,
+                   command=0x35,  # WRITE
+                   reserved=0, control=0)
+  ASCII_S = 83
+  SG_DXFER_TO_DEV = -2
+  sense = ctypes.c_buffer(64)
+
+  identify = ctypes.c_buffer(512 * sectors)
+  identify[2]='T'
+  identify[3]='U'
+  identify[4]='S'
+  identify[5]='C'
+  identify[6]='O'
+
+  for el in identify:
+      print el,
+  print
+
+  sgio = SgioHdr(interface_id=ASCII_S, dxfer_direction=SG_DXFER_TO_DEV,
+                 cmd_len=ctypes.sizeof(ata_cmd),
+                 mx_sb_len=ctypes.sizeof(sense), iovec_count=0,
+                 dxfer_len=ctypes.sizeof(identify),
+                 dxferp=ctypes.cast(identify, ctypes.c_void_p),
+                 cmdp=ctypes.addressof(ata_cmd),
+                 sbp=ctypes.cast(sense, ctypes.c_void_p), timeout=0,
+                 flags=0, pack_id=0, usr_ptr=None, status=0, masked_status=0,
+                 msg_status=0, sb_len_wr=0, host_status=0, driver_status=0,
+                 resid=0, duration=0, info=0)
+  SG_IO = 0x2285  # <scsi/sg.h>
+
+
+  libc = ctypes.CDLL('libc.so.6')
+  fd = os.open(dev, os.O_RDWR, 0666)
+  value = ctypes.c_uint64(ctypes.addressof(sgio))
+  if libc.ioctl(fd, SG_IO, value) != 0:
+      print "fcntl failed"
+      return None
+
+  if ord(sense[0]) & 0xef == 0x72:
+      res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[1]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[2])) + " ASCQ: " + "0x{:02x}".format(ord(sense[3]))
+  else:
+      res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[2]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[12])) + " ASCQ: " + "0x{:02x}".format(ord(sense[13]))
+
+  print res
+  return
+
+
+def Identify_Read_Wrapper(dev):
+  if dev[0] != '/':
+    dev = '/dev/' + dev
+  ata_cmd = AtaCmd(opcode=0xa1,  # ATA PASS-THROUGH (12)
+                   protocol=0x0d,  # PIO Data-In
+                   # flags field
+                   # OFF_LINE = 0 (0 seconds offline)
+                   # CK_COND = 1 (copy sense data in response)
+                   # T_DIR = 1 (transfer from the ATA device)
+                   # BYT_BLOK = 1 (length is in blocks, not bytes)
+                   # T_LENGTH = 2 (transfer length in the SECTOR_COUNT field)
+                   flags=0x26,
+                   features=0, sector_count=0,
+                   lba_low=0, lba_mid=0, lba_high=0,
+                   device=0,
+                   command=0xec,  # IDENTIFY
+                   reserved=0, control=0)
+  ASCII_S = 83
+  SG_DXFER_FROM_DEV = -3
+  sense = ctypes.c_buffer(64)
+  identify = ctypes.c_buffer(512)
+  sgio = SgioHdr(interface_id=ASCII_S, dxfer_direction=SG_DXFER_FROM_DEV,
+                 cmd_len=ctypes.sizeof(ata_cmd),
+                 mx_sb_len=ctypes.sizeof(sense), iovec_count=0,
+                 dxfer_len=ctypes.sizeof(identify),
+                 dxferp=ctypes.cast(identify, ctypes.c_void_p),
+                 cmdp=ctypes.addressof(ata_cmd),
+                 sbp=ctypes.cast(sense, ctypes.c_void_p), timeout=0 ,
+                 flags=0, pack_id=0, usr_ptr=None, status=0, masked_status=0,
+                 msg_status=0, sb_len_wr=0, host_status=0, driver_status=0,
+                 resid=0, duration=0, info=0)
+  SG_IO = 0x2285  # <scsi/sg.h>
+
+
+  libc = ctypes.CDLL('libc.so.6')
+  fd = os.open(dev, os.O_RDWR, 0666)
+  value = ctypes.c_uint64(ctypes.addressof(sgio))
+  if libc.ioctl(fd, SG_IO, value) != 0:
+      print "fcntl failed"
+      return None
+
+  if ord(sense[0]) & 0xef == 0x72:
+      res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[1]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[2])) + " ASCQ: " + "0x{:02x}".format(ord(sense[3]))
+  else:
+      res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[2]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[12])) + " ASCQ: " + "0x{:02x}".format(ord(sense[13]))
+
+  serial_no = SwapString(identify[20:40])
+  fw_rev = SwapString(identify[46:53])
+  model = SwapString(identify[54:93])
+  print (serial_no, fw_rev, model)
+  print res
+  return
+
+def Read_Identify_Wrapper(dev,lba,sectors):
+  if dev[0] != '/':
+    dev = '/dev/' + dev
+  ata_cmd = AtaCmd(opcode=0xa1,  # ATA PASS-THROUGH (12)
+                   protocol=4<<1,  # PIO Data-In
+                   # flags field
+                   # OFF_LINE = 0 (0 seconds offline)
+                   # CK_COND = 1 (copy sense data in response)
+                   # T_DIR = 1 (transfer from the ATA device)
+                   # BYT_BLOK = 1 (length is in blocks, not bytes)
+                   # T_LENGTH = 2 (transfer length in the SECTOR_COUNT field)
+                   flags=0x2e,
+                   features=0, sector_count=0,
+                   lba_low=lba, lba_mid=(lba>>8), lba_high=(lba>>16),
+                   device=0,
+                   command=0x25,  # IDENTIFY
+                   reserved=0, control=0)
+  ASCII_S = 83
+  SG_DXFER_FROM_DEV = -3
+  sense = ctypes.c_buffer(64)
+  identify = ctypes.c_buffer(512 * sectors)
+  sgio = SgioHdr(interface_id=ASCII_S, dxfer_direction=SG_DXFER_FROM_DEV,
+                 cmd_len=ctypes.sizeof(ata_cmd),
+                 mx_sb_len=ctypes.sizeof(sense), iovec_count=0,
+                 dxfer_len=ctypes.sizeof(identify),
+                 dxferp=ctypes.cast(identify, ctypes.c_void_p),
+                 cmdp=ctypes.addressof(ata_cmd),
+                 sbp=ctypes.cast(sense, ctypes.c_void_p), timeout=0 ,
+                 flags=0, pack_id=0, usr_ptr=None, status=0, masked_status=0,
+                 msg_status=0, sb_len_wr=0, host_status=0, driver_status=0,
+                 resid=0, duration=0, info=0)
+  SG_IO = 0x2285  # <scsi/sg.h>
+
+
+  libc = ctypes.CDLL('libc.so.6')
+  fd = os.open(dev, os.O_RDWR, 0666)
+  value = ctypes.c_uint64(ctypes.addressof(sgio))
+  if libc.ioctl(fd, SG_IO, value) != 0:
+      print "fcntl failed"
+      return None
+
+  if ord(sense[0]) & 0xef == 0x72:
+      res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[1]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[2])) + " ASCQ: " + "0x{:02x}".format(ord(sense[3]))
+  else:
+      res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[2]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[12])) + " ASCQ: " + "0x{:02x}".format(ord(sense[13]))
+
+  for el in identify:
+      print el,
+  print
+  print res
+  return
 

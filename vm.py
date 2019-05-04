@@ -5,7 +5,7 @@ import time
 import socket
 import subprocess
 
-RES_LEN=56
+RES_LEN=104 #56
 CMD_LEN=60
 
 class Vm(threading.Thread):
@@ -16,7 +16,7 @@ class Vm(threading.Thread):
         cmd= ''
         while len(cmd) < CMD_LEN:
             more = sock.recv(CMD_LEN - len(cmd))
-            #print more, len(more)
+            print more
             if not more:
                 raise EOFError()
             cmd += more
@@ -26,8 +26,7 @@ class Vm(threading.Thread):
         while len(res) < RES_LEN:
             #print 'pre result'
             more = sock.recv(RES_LEN - len(res))
-           # print more, len(more)
-            #time.sleep(3)
+            print more
             if not more:
                raise EOFError()
             res += more
@@ -44,14 +43,22 @@ class Vm(threading.Thread):
         #print 'post res, recv alive'
         alive=sock.recv(1)
         #print 'alive 1: ' , alive
-        if int(alive) > 0 :
-            self.out_ok.write("Command: " + cmd+"\n")
-            self.out_ok.write(res+"\n")
-        else: #ssd dead - Try to unplug and replug
-            self.out_bad.write("Command: " + cmd+"\n")
-            self.out_bad.write(res+"\n")
+        
+        if int(alive) <= 0 or all([el == b'\x01' for el in res]) or int(
+                alive) == 0xff:  # ssd dead - Try to unplug and replug
+
+            if int(alive) == 0xff:
+                self.out_bad.write("Command: " + cmd + " Identify failed\n")
+            else:
+                self.out_bad.write("Command: " + cmd + "\n")
+
+            self.out_bad.write(res + "\n")
             self.out_bad.flush()
             self.restart(sock)
+        elif int(alive) > 0:
+            self.out_ok.write("Command: " + cmd + "\n")
+            self.out_ok.write(res + "\n")
+            self.out_ok.flush()
 
         sock.shutdown(socket.SHUT_RDWR)
         sock.close()
@@ -71,7 +78,7 @@ class Vm(threading.Thread):
             res = ''
             while len(res) < RES_LEN:
                 more = target.recv(RES_LEN - len(res))
-                print more
+                print more , len(more)
                 if not more:
                     raise EOFError()
                 res += more
@@ -85,8 +92,13 @@ class Vm(threading.Thread):
                 return 0
 
             alive = target.recv(1)
-            if int(alive) <=0 or all([el == b'\x01' for el in res]) :  # ssd dead - Try to unplug and replug
-                self.out_bad.write("Command: " + cmd + "\n")
+            if int(alive) <=0 or all([el == b'\x01' for el in res]) or int(alive)==0xff :  # ssd dead - Try to unplug and replug
+
+                if int(alive) == 0xff:
+                    self.out_bad.write("Command: " + cmd + " Identify failed\n")
+                else:
+                    self.out_bad.write("Command: " + cmd + "\n")
+
                 self.out_bad.write(res + "\n")
                 self.out_bad.flush()
                 self.restart(target)
@@ -130,7 +142,9 @@ class Vm(threading.Thread):
             subprocess.call(['vagrant halt ' + self.id + ' --force'], shell=True)
 
             time.sleep(0.5)
-            subprocess.call(['vagrant up ' + self.id + ' --provision'], stdout=subprocess.PIPE, shell=True)
+            #sudo vagrant snapshot  restore 884d5a7 884d5a7_snapshot ?provision?
+            subprocess.call(['vagrant snapshot  restore ' + self.id + " " +  self.id + '_snapshot'], stdout=subprocess.PIPE, shell=True)
+           # subprocess.call(['vagrant up ' + self.id + ' --provision'], stdout=subprocess.PIPE, shell=True)
 
             subprocess.call(["ykushcmd -u " + self.ykush_port], shell=True)
             time.sleep(2)
@@ -157,8 +171,8 @@ class Vm(threading.Thread):
         self.target=Target(connection=SocketConnection("127.0.0.1", int(self.dst_port), proto='tcp', recv_timeout=600,send_timeout=600))
         self.session=Session(target=self.target)
         self.session.register_post_test_case_callback(self.callback)
-        self.out_ok=open("./output/"+str(self.id)+"_good_commands.txt","w")
-        self.out_bad=open("./output/"+ str(self.id)+"_bad_commands.txt","w")
+        self.out_ok=open("./output/"+str(self.id)+"_good_commands.txt","a+")
+        self.out_bad=open("./output/"+ str(self.id)+"_bad_commands.txt","a+")
 
         s_initialize("ata_pass_through - " + self.id )
         s_byte(0xa1,fuzzable=False) #not fuzzable
@@ -172,8 +186,8 @@ class Vm(threading.Thread):
 
     def offline_init(self,filename):
 
-        self.out_ok=open("./output/"+str(self.id)+"_good_commands_off.txt","w")
-        self.out_bad=open("./output/"+ str(self.id)+"_bad_commands_off.txt","w")
+        self.out_ok=open("./output/"+str(self.id)+"_good_commands_off.txt","a+")
+        self.out_bad=open("./output/"+ str(self.id)+"_bad_commands_off.txt","a+")
         self.commands=filename
 
         return
