@@ -265,7 +265,7 @@ def ReadBlockSgIo_Origin(dev,lba,sectors):
   if dev[0] != '/':
     dev = '/dev/' + dev
   ata_cmd = AtaCmd(opcode=0xa1,  # ATA PASS-THROUGH (12)
-                   protocol=0x0d,  # PIO Data-In
+                   protocol=6<<1,  # PIO Data-In
                    # flags field
                    # OFF_LINE = 0 (0 seconds offline)
                    # CK_COND = 1 (copy sense data in response)
@@ -317,7 +317,7 @@ def WriteBlockSgIo_Origin(dev,lba,sectors,data):
   if dev[0] != '/':
     dev = '/dev/' + dev
   ata_cmd = AtaCmd(opcode=0xa1,  # ATA PASS-THROUGH (12)
-                   protocol=0x0d,  # PIO Data-In
+                   protocol=6<<1,  # PIO Data-In
                    # flags field
                    # OFF_LINE = 0 (0 seconds offline)
                    # CK_COND = 1 (copy sense data in response)
@@ -378,7 +378,7 @@ def Identify_Read_Wrapper(dev):
   if dev[0] != '/':
     dev = '/dev/' + dev
   ata_cmd = AtaCmd(opcode=0xa1,  # ATA PASS-THROUGH (12)
-                   protocol=0x0d,  # PIO Data-In
+                   protocol=6<<1,  # PIO Data-In
                    # flags field
                    # OFF_LINE = 0 (0 seconds offline)
                    # CK_COND = 1 (copy sense data in response)
