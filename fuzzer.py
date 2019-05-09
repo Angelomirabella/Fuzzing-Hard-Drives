@@ -165,7 +165,7 @@ def go_vm():
             #55555print 'Verify Identify'
             serial_no,fw_rev,model=ata.GetDriveIdSgIo_Origin(sys.argv[3])
             if serial_no!=serial_no_origin or fw_rev != fw_rev_origin or model != model_origin: #cmd was somehow bad
-                client_s.sendall(0xff)
+                client_s.sendall('255')
                # print 'bad'
             else:
                 client_s.sendall(out[0])
