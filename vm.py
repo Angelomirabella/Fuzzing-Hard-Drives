@@ -4,6 +4,7 @@ import os
 import time
 import socket
 import subprocess
+import datetime
 
 RES_LEN=104 #56
 CMD_LEN=60
@@ -203,13 +204,19 @@ class Vm(threading.Thread):
                 for line in fd:
                     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     s.connect(('localhost', int(self.dst_port)))
-                    line=line[:len(line)-1]
+
+                    l=line.split()
+                    for i in range(len(l)):
+                        l[i]=l[i].lstrip('0')
+                        l[i]=l[i].lstrip('x')
+                    line="".join(l)
+                    #line=line[:len(line)-1]
                     line+= "a1"
                     print line
+                    #exit(0)
                     cmd=line.decode('hex')
             #        print len(cmd)
                     s.sendall(cmd)
-                    print 'sent'
                     res=self.off_callback(s)
                     if res == 0:
                         break

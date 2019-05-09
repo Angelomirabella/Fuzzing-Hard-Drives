@@ -196,14 +196,16 @@ def ReadBlockSgIo(dev,data):
   else:
       res= 'Response code: '+ "0x{:02x}".format(ord(sense[0])) + ' Sense key: ' + "0x{:02x}".format(ord(sense[2]) & 0x0f) + " ASC: " + "0x{:02x}".format(ord(sense[12])) + " ASCQ: " + "0x{:02x}".format(ord(sense[13]))
 
-  ts2 = time.time()
-  str2 = datetime.datetime.fromtimestamp(ts2).strftime('%H:%M:%S:%f')
-
-  res='[' + str1 + " -> " + str2 + "] " + res
  # for el in identify:
    #   print el,
  # print
   os.close(fd)
+
+  ts2 = time.time()
+  str2 = datetime.datetime.fromtimestamp(ts2).strftime('%H:%M:%S:%f')
+
+  res='[' + str1 + " -> " + str2 + "] " + res
+
  # print "res: ", SwapString(identify[:])
   return res
 
