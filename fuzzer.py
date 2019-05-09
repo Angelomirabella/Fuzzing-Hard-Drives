@@ -88,7 +88,7 @@ def go_live():
 def go_vm():
 
     if len(sys.argv) != 4:
-        print "Usage: sudo python server.py <option> <host_port> <device>"
+        print "Usage: sudo python server.py <option> <host_port> <size>"
         exit(0)
     signal.signal(signal.SIGINT, quit_handler)
 
@@ -96,6 +96,10 @@ def go_vm():
     s.bind(('',int(sys.argv[2])))
     s.listen(5)
     i=1
+
+    proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] +" | awk '{print $1;}'"], stdout=subprocess.PIPE, shell=True)
+    (out,err)=proc.communicate()
+    dev=out[:-1]
 
     while True:
         client_s, addr = s.accept()
@@ -122,7 +126,7 @@ def go_vm():
         client_s.sendall(cmd)
         cnt=0
         while  True:
-            proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] + " | wc -l"], stdout=subprocess.PIPE, shell=True)
+            proc = subprocess.Popen(["lsblk | grep " + dev + " | wc -l"], stdout=subprocess.PIPE, shell=True)
             (out, err) = proc.communicate()
             if int(out)>0:
                 break
@@ -136,21 +140,21 @@ def go_vm():
                     exit(-1)
 
         try:
-            res = ata.ReadBlockSgIo("/dev/"+sys.argv[3], ata_pass_through)
+            res = ata.ReadBlockSgIo("/dev/"+ dev, ata_pass_through)
         except:
             res=b'\x01'*RES_LEN
 
         client_s.sendall(res)
 
 
-        proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] + " | wc -l"], stdout=subprocess.PIPE, shell=True)
+        proc = subprocess.Popen(["lsblk | grep " + dev + " | wc -l"], stdout=subprocess.PIPE, shell=True)
 
         (out, err) = proc.communicate()
         if int(out) == 0: #if 0 ssd is dead - Try to unplug and replug
             client_s.sendall(out[0])
             client_s.recv(1)
             for i in range(5):
-                proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] + " | wc -l"], stdout=subprocess.PIPE, shell=True)
+                proc = subprocess.Popen(["lsblk | grep " + dev + " | wc -l"], stdout=subprocess.PIPE, shell=True)
                 (out, err) = proc.communicate()
                 if int(out)==1:
                     break
@@ -163,9 +167,9 @@ def go_vm():
 
         else: #  out > 0 BUT  double-check with Identify command
             #55555print 'Verify Identify'
-            serial_no,fw_rev,model=ata.GetDriveIdSgIo_Origin(sys.argv[3])
+            serial_no,fw_rev,model=ata.GetDriveIdSgIo_Origin(dev)
             if serial_no!=serial_no_origin or fw_rev != fw_rev_origin or model != model_origin: #cmd was somehow bad
-                client_s.sendall('255')
+                client_s.sendall('4')
                # print 'bad'
             else:
                 client_s.sendall(out[0])
@@ -177,10 +181,14 @@ def go_vm():
 def go_offline():
 
     if len(sys.argv) != 4:
-        print "Usage: sudo python server.py <option> <filename> <device>"
+        print "Usage: sudo python server.py <option> <filename> <size>"
         exit(0)
 
     filename=sys.argv[2]
+
+    proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] +" | awk '{print $1;}'"], stdout=subprocess.PIPE, shell=True)
+    (out,err)=proc.communicate()
+    dev=out[:-1]
 
     for line in open(filename):
         values=line.split()
@@ -192,7 +200,7 @@ def go_offline():
                             'control': int(values[11],0)}
     
         print hex(ata_pass_through['opcode']), hex(ata_pass_through['protocol']), hex(ata_pass_through['flags']),hex(ata_pass_through['features']),hex(ata_pass_through['sector_count']),hex(ata_pass_through['lba_low']),hex(ata_pass_through['lba_mid']),hex(ata_pass_through['lba_high']),hex(ata_pass_through['device']),hex(ata_pass_through['command']),hex(ata_pass_through['reserved']),hex(ata_pass_through['control'])
-        res=ata.ReadBlockSgIo("/dev/"+sys.argv[3], ata_pass_through)
+        res=ata.ReadBlockSgIo("/dev/"+dev, ata_pass_through)
         print res
         print 'Done'
 
@@ -208,5 +216,5 @@ if __name__=='__main__':
         go_offline()
     else:
         print 'Usage: sudo python fuzzer.py -i <port> <device>'
-        print 'Usage: sudo python fuzzer.py -n <host_port> <device>'
-        print 'Usage: sudo python fuzzer.py -r <filename> <device>'
+        print 'Usage: sudo python fuzzer.py -n <host_port> <size>'
+        print 'Usage: sudo python fuzzer.py -r <filename> <size>'

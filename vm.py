@@ -93,9 +93,9 @@ class Vm(threading.Thread):
                 return 0
 
             alive = target.recv(1)
-            if int(alive) <=0 or all([el == b'\x01' for el in res]) or int(alive)==0xff :  # ssd dead - Try to unplug and replug
+            if int(alive) <=0 or all([el == b'\x01' for el in res]) or int(alive)==4 :  # ssd dead - Try to unplug and replug
 
-                if int(alive) == 0xff:
+                if int(alive) == 4:
                     self.out_bad.write("Command: " + cmd + " Identify failed\n")
                 else:
                     self.out_bad.write("Command: " + cmd + "\n")
