@@ -181,6 +181,22 @@ def go_vm():
             serial_no,fw_rev,model=ata.GetDriveIdSgIo_Origin(dev)
             if serial_no!=serial_no_origin or fw_rev != fw_rev_origin or model != model_origin: #cmd was somehow bad
                 client_s.sendall('4')
+                client_s.recv(1)
+                for i in range(10):
+                    proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] + " | wc -l"], stdout=subprocess.PIPE,
+                                            shell=True)
+                    #               proc = subprocess.Popen(["lsblk | grep " + dev + " | wc -l"], stdout=subprocess.PIPE, shell=True)
+                    (out, err) = proc.communicate()
+                    fd.write('recovering ' + str(i) + ' ' + out + '\n')
+                    if int(out) == 1:
+                        break
+                    time.sleep(1)
+                client_s.sendall(out[0])
+                if int(
+                        out) == 0:  # ssd still disconnected - ask controller to shut down the vm and exit the process otherwise continue
+                    client_s.shutdown(socket.SHUT_RDWR)
+                    client_s.close()
+                    exit(-1)
                # print 'bad'
             else:
                 client_s.sendall(out[0])
