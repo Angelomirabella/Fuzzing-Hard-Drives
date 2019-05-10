@@ -126,9 +126,13 @@ def go_vm():
         client_s.sendall(cmd)
         cnt=0
         while  True:
-            proc = subprocess.Popen(["lsblk | grep " + dev + " | wc -l"], stdout=subprocess.PIPE, shell=True)
+        #    proc = subprocess.Popen(["lsblk | grep " + dev + " | wc -l"], stdout=subprocess.PIPE, shell=True)
+          
+            proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] +" | awk '{print $1;}'"], stdout=subprocess.PIPE, shell=True)
             (out, err) = proc.communicate()
-            if int(out)>0:
+
+            dev=out[:-1]
+            if len(dev)>0:
                 break
             else:
                 time.sleep(1)
@@ -143,7 +147,6 @@ def go_vm():
             res = ata.ReadBlockSgIo("/dev/"+ dev, ata_pass_through)
         except:
             res=b'\x01'*RES_LEN
-
         client_s.sendall(res)
 
 
