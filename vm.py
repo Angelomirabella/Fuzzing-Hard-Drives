@@ -100,9 +100,9 @@ class Vm(threading.Thread):
 
             alive = target.recv(1)
 
-            if len(alive) == 0:
-                print 'EMPTY ALIVE'
-                exit(0)
+            if len(alive) == 0: #don t know why it happens
+                #print 'EMPTY ALIVE'
+                #exit(0)
                 alive=0
 
             if int(alive) <=0 or all([el == b'\x01' for el in res]) or int(alive)==4 :  # ssd dead - Try to unplug and replug
@@ -149,6 +149,10 @@ class Vm(threading.Thread):
 
             target.send(b'1')
             alive = target.recv(1)
+
+            if len(alive) == 0:
+                alive=0
+
         if int(alive) == 0 or skip==1:  # ssd dead - shut down the vm and power on again
 
             subprocess.call(["ykushcmd -d " + self.ykush_port], shell=True)

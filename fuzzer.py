@@ -162,9 +162,10 @@ def go_vm():
         if int(out) == 0: #if 0 ssd is dead - Try to unplug and replug
             client_s.sendall(out[0])
             client_s.recv(1)
-            for i in range(5):
+            for i in range(10):
                 proc = subprocess.Popen(["lsblk | grep " + dev + " | wc -l"], stdout=subprocess.PIPE, shell=True)
                 (out, err) = proc.communicate()
+                fd.write('recovering ' + str(i) + ' ' + out + '\n')
                 if int(out)==1:
                     break
                 time.sleep(1)
