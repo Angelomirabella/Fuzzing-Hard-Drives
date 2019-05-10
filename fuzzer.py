@@ -97,7 +97,7 @@ def go_vm():
     s.listen(5)
     i=1
 
-    fd=open('log.txt','w')
+    fd=open('log.txt','a')
 
     while True:
         client_s, addr = s.accept()

@@ -95,6 +95,7 @@ class Vm(threading.Thread):
                     restarted = True
                     self.restart(target,1)
                 else: # nothing to do exiting
+                    self.out_bad.write("SSD DEAD \n")
                     exit(0)
                 return 0
 
