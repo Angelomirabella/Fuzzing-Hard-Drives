@@ -137,11 +137,18 @@ def go_vm():
             else:
                 time.sleep(1)
                 cnt= cnt + 1
-                if cnt == 300: #ssd is not recovering - shut down everything
+                if cnt == 100: #ssd is not recovering - shut down everything
                     client_s.sendall(b'\x00' * RES_LEN) #56 = RES_LEN
-                    client_s.shutdown(socket.SHUT_RDWR)
-                    client_s.close()
-                    exit(-1)
+                #    client_s.shutdown(socket.SHUT_RDWR)
+                 #   client_s.close()
+                  #  exit(-1)
+                    client_s.recv(1)
+                    proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] + " | wc -l"], stdout=subprocess.PIPE,shell=True)
+                    (out, err) = proc.communicate()
+                    fd.write('out ' + out + '\n')
+                    client_s.sendall(out[0])
+                    return
+
 
         try:
             res = ata.ReadBlockSgIo("/dev/"+ dev, ata_pass_through)

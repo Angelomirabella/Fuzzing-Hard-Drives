@@ -93,7 +93,7 @@ class Vm(threading.Thread):
                 self.out_bad.flush()
                 if restarted is False: #try last time to restart the vm
                     restarted = True
-                    self.restart(target,1)
+                    self.restart(target)
                 else: # nothing to do exiting
                     self.out_bad.write("SSD DEAD \n")
                     exit(0)
