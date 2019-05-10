@@ -8,6 +8,7 @@ import datetime
 
 RES_LEN=104 #56
 CMD_LEN=60
+restarted=False
 
 class Vm(threading.Thread):
 
@@ -66,6 +67,7 @@ class Vm(threading.Thread):
         return 1
 
     def callback(self,target,fuzz_data_logger,session,*args,**kwargs):
+        global restarted
 
         try:
             cmd = ''
@@ -89,10 +91,20 @@ class Vm(threading.Thread):
                 self.out_ok.flush()
                 self.out_bad.write("SSD DEAD \n")
                 self.out_bad.flush()
-
+                if restarted is False: #try last time to restart the vm
+                    restarted = True
+                    self.restart(target,1)
+                else: # nothing to do exiting
+                    exit(0)
                 return 0
 
             alive = target.recv(1)
+
+            if len(alive) == 0:
+                print 'EMPTY ALIVE'
+                exit(0)
+                alive=0
+
             if int(alive) <=0 or all([el == b'\x01' for el in res]) or int(alive)==4 :  # ssd dead - Try to unplug and replug
 
                 if int(alive) == 4:

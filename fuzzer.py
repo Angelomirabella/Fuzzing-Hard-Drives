@@ -97,9 +97,7 @@ def go_vm():
     s.listen(5)
     i=1
 
-    proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] +" | awk '{print $1;}'"], stdout=subprocess.PIPE, shell=True)
-    (out,err)=proc.communicate()
-    dev=out[:-1]
+    fd=open('log.txt','w')
 
     while True:
         client_s, addr = s.accept()
@@ -127,10 +125,12 @@ def go_vm():
         cnt=0
         while  True:
         #    proc = subprocess.Popen(["lsblk | grep " + dev + " | wc -l"], stdout=subprocess.PIPE, shell=True)
-          
+            fd.write('in loop\n')
             proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] +" | awk '{print $1;}'"], stdout=subprocess.PIPE, shell=True)
             (out, err) = proc.communicate()
-
+            fd.write('a')
+            fd.write(out+ ' ' + err + '\n')
+            fd.write('b\n')
             dev=out[:-1]
             if len(dev)>0:
                 break
@@ -147,12 +147,15 @@ def go_vm():
             res = ata.ReadBlockSgIo("/dev/"+ dev, ata_pass_through)
         except:
             res=b'\x01'*RES_LEN
+
+        fd.write('res ' + res + '\n')
         client_s.sendall(res)
 
 
         proc = subprocess.Popen(["lsblk | grep " + dev + " | wc -l"], stdout=subprocess.PIPE, shell=True)
 
         (out, err) = proc.communicate()
+        fd.write('out ' + out + ' ' + err + '\n')
         if int(out) == 0: #if 0 ssd is dead - Try to unplug and replug
             client_s.sendall(out[0])
             client_s.recv(1)
@@ -169,7 +172,7 @@ def go_vm():
                 exit(-1)
 
         else: #  out > 0 BUT  double-check with Identify command
-            #55555print 'Verify Identify'
+            #print 'Verify Identify'
             serial_no,fw_rev,model=ata.GetDriveIdSgIo_Origin(dev)
             if serial_no!=serial_no_origin or fw_rev != fw_rev_origin or model != model_origin: #cmd was somehow bad
                 client_s.sendall('4')
