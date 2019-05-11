@@ -146,6 +146,12 @@ def go_vm():
                     proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] + " | wc -l"], stdout=subprocess.PIPE,shell=True)
                     (out, err) = proc.communicate()
                     fd.write('out ' + out + '\n')
+
+                    proc = subprocess.Popen(["lsblk "], stdout=subprocess.PIPE,shell=True)
+                    (out, err) = proc.communicate()
+                    fd.write('lsblk ' + out + '\n')
+
+
                     client_s.sendall(out[0])
                     return
 
