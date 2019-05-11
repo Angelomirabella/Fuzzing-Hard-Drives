@@ -137,7 +137,7 @@ def go_vm():
             else:
                 time.sleep(1)
                 cnt= cnt + 1
-                if cnt == 100: #ssd is not recovering - shut down everything
+                if cnt == 30: #ssd is not recovering - shut down everything
                     client_s.sendall(b'\x00' * RES_LEN) #56 = RES_LEN
                 #    client_s.shutdown(socket.SHUT_RDWR)
                  #   client_s.close()
@@ -199,8 +199,7 @@ def go_vm():
                         break
                     time.sleep(1)
                 client_s.sendall(out[0])
-                if int(
-                        out) == 0:  # ssd still disconnected - ask controller to shut down the vm and exit the process otherwise continue
+                if int(out) == 0:  # ssd still disconnected - ask controller to shut down the vm and exit the process otherwise continue
                     client_s.shutdown(socket.SHUT_RDWR)
                     client_s.close()
                     exit(-1)

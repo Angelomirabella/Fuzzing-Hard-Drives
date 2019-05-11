@@ -144,7 +144,8 @@ class Vm(threading.Thread):
         if skip==0:
             subprocess.call(["ykushcmd -d " + self.ykush_port], shell=True)
 
-            time.sleep(0.5)
+
+            time.sleep(2)
             subprocess.call(["ykushcmd -u " + self.ykush_port], shell=True)
             time.sleep(2)
 
@@ -159,7 +160,7 @@ class Vm(threading.Thread):
             subprocess.call(["ykushcmd -d " + self.ykush_port], shell=True)
             subprocess.call(['vagrant halt ' + self.id + ' --force'], shell=True)
 
-            time.sleep(0.5)
+            time.sleep(2)
             #sudo vagrant snapshot  restore 884d5a7 884d5a7_snapshot ?provision?
            # subprocess.call(['vagrant snapshot  restore ' + self.id + " " +  self.id + '_snapshot'], stdout=subprocess.PIPE, shell=True)
             subprocess.call(['vagrant up ' + self.id + ' --provision'], stdout=subprocess.PIPE, shell=True)
