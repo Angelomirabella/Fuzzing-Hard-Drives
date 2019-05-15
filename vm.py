@@ -45,6 +45,9 @@ class Vm(threading.Thread):
         #print 'post res, recv alive'
         alive=sock.recv(1)
         #print 'alive 1: ' , alive
+
+        if len(alive) == 0:  
+            alive = 0
         
         if int(alive) <= 0 or all([el == b'\x01' for el in res]) or int(
                 alive) == 0xff:  # ssd dead - Try to unplug and replug
