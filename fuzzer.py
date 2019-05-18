@@ -33,15 +33,15 @@ def work():
         if stop:
             exit(0)
     #    print 'Test: ', i
-        i += 1
         ata_pass_through= queue.get()
         if len(ata_pass_through) != 12:
             continue
         print hex(ata_pass_through['opcode']), hex(ata_pass_through['protocol']), hex(ata_pass_through['flags']),hex(ata_pass_through['features']),hex(ata_pass_through['sector_count']),hex(ata_pass_through['lba_low']),hex(ata_pass_through['lba_mid']),hex(ata_pass_through['lba_high']),hex(ata_pass_through['device']),hex(ata_pass_through['command']),hex(ata_pass_through['reserved']),hex(ata_pass_through['control'])
 
         res = ata.ReadBlockSgIo("/dev/"+sys.argv[3], ata_pass_through)
+        i += 1
         print res
-        print 'Done'
+        print 'Done ', str(i)
 
 
 
