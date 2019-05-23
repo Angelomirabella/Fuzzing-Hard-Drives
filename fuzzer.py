@@ -222,7 +222,7 @@ def go_offline():
     if len(sys.argv) != 4:
         print "Usage: sudo python server.py <option> <filename> <size>"
         exit(0)
-
+    i=0
     filename=sys.argv[2]
 
     proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] +" | awk '{print $1;}'"], stdout=subprocess.PIPE, shell=True)
@@ -240,8 +240,16 @@ def go_offline():
     
         print hex(ata_pass_through['opcode']), hex(ata_pass_through['protocol']), hex(ata_pass_through['flags']),hex(ata_pass_through['features']),hex(ata_pass_through['sector_count']),hex(ata_pass_through['lba_low']),hex(ata_pass_through['lba_mid']),hex(ata_pass_through['lba_high']),hex(ata_pass_through['device']),hex(ata_pass_through['command']),hex(ata_pass_through['reserved']),hex(ata_pass_through['control'])
         res=ata.ReadBlockSgIo("/dev/"+dev, ata_pass_through)
+        i+=1
+        proc = subprocess.Popen(["lsblk | grep " + dev + " | head -n 1 | awk '{print $4;}'"], stdout=subprocess.PIPE, shell=True)
+        (out, err) = proc.communicate()
+
         print res
-        print 'Done'
+        print 'Done ' + str(i) + ' Size ' + out
+        sys.stdout.flush()
+        if out[:-1] != sys.argv[3]:
+            print 'ERROR'
+            exit(0)
 
 
 if __name__=='__main__':
