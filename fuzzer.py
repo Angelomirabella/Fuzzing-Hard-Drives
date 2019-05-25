@@ -225,7 +225,7 @@ def go_offline():
     i=0
     filename=sys.argv[2]
 
-    proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] +" | awk '{print $1;}'"], stdout=subprocess.PIPE, shell=True)
+    proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] +" | head -n 1 | awk '{print $1;}'"], stdout=subprocess.PIPE, shell=True)
     (out,err)=proc.communicate()
     dev=out[:-1]
 
