@@ -148,7 +148,7 @@ def go_qemu():
         #Check 2 - Identify
         serial_no, fw_rev, model = ata.GetDriveIdSgIo_Origin(sys.argv[3])
         if serial_no != 'QM00005' or fw_rev != '2.5+' or model != 'QEMU HARDDISK':
-            print 'Identify test failed -->  values: ' , serial_no, fw_rev, model   
+            print 'Identify test failed -->  values: ' , serial_no, fw_rev, model
 
         print res
         print 'Done ', str(i)
