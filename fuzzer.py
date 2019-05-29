@@ -104,7 +104,7 @@ def go_qemu():
     s.bind(('',int(sys.argv[2])))
     s.listen(5)
     print 'Waiting Connections...'
-    i=1
+    i=0
 
     while True:
         client_s, addr= s.accept()
