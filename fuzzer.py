@@ -5,8 +5,10 @@ import threading
 import Queue
 import sys
 import subprocess
-import os
+import random
+import string
 import time
+import os
 
 RES_LEN=104 #56
 ATA_PASS_THROUGH_LEN=12
@@ -18,6 +20,12 @@ queue=Queue.Queue()
 sem=threading.Semaphore(0)
 stop=False
 lock = threading.Lock()
+
+
+def randomString(stringLength=10):
+    """Generate a random string of fixed length """
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(stringLength))
 
 def quit_handler(signum, frame):
     global stop
@@ -83,6 +91,68 @@ def go_live():
         queue.put(ata_pass_through)
         sem.release()
         i+=1
+
+def go_qemu():
+
+    if len(sys.argv) != 4:
+        print "Usage: sudo python server.py <option> <port> <device>"
+        exit(0)
+
+    signal.signal(signal.SIGINT, quit_handler)
+
+    s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    s.bind(('',int(sys.argv[2])))
+    s.listen(5)
+    print 'Waiting Connections...'
+    i=1
+
+    while True:
+        client_s, addr= s.accept()
+        raw_data = ''
+        while len(raw_data) < ATA_PASS_THROUGH_LEN+1:
+            more = client_s.recv((ATA_PASS_THROUGH_LEN+1) - len(raw_data))
+            if not more:
+                raise EOFError()
+            raw_data += more
+            #raw_data=client_s.recv(13)
+
+
+        ata_pass_through={'opcode' : int(ord(raw_data[0])) , 'protocol' :  int(ord(raw_data[1])) , 'flags' :  int(ord(raw_data[2])) , 'features' :  int(ord(raw_data[3]))
+        , 'sector_count' :  int(ord(raw_data[4])) , 'lba_low' :  int(ord(raw_data[5])) , 'lba_mid' :  int(ord(raw_data[6])) , 'lba_high' :  int(ord(raw_data[7]))
+        ,  'device' :  int(ord(raw_data[8])) , 'command' :  int(ord(raw_data[9])) , 'reserved' :  int(ord(raw_data[10])) , 'control' :  int(ord(raw_data[11]))}
+
+
+        res = ata.ReadBlockSgIo("/dev/"+sys.argv[3], ata_pass_through)
+        i += 1
+
+
+        #Test Checks - 1 file system
+
+        try:
+            name=randomString()
+            fd=open(name,'w')
+            fd.write('ciao mamma\n')
+            fd.flush()
+            fd.close()
+            fd=open(name,'r')
+            if fd.readline() != 'ciao mamma':
+                print 'Read content is different from expected!'
+                sys.stdout.flush()
+            fd.close()
+            os.remove(name)
+        except:
+            print 'Exception in file system check. Probably it it read only!'
+            sys.stdout.flush()
+            exit(-1)
+
+        #Check 2 - Identify
+        serial_no, fw_rev, model = ata.GetDriveIdSgIo_Origin(sys.argv[3])
+        if serial_no != 'QM00005' or fw_rev != '2.5+' or model != 'QEMU HARDDISK':
+            print 'Identify test failed -->  values: ' , serial_no, fw_rev, model   
+
+        print res
+        print 'Done ', str(i)
+        sys.stdout.flush()
 
 
 def go_vm():
@@ -261,6 +331,8 @@ if __name__=='__main__':
         go_vm()
     elif option == '-r':
         go_offline()
+    elif option == '-q':
+        go_qemu()
     else:
         print 'Usage: sudo python fuzzer.py -i <port> <device>'
         print 'Usage: sudo python fuzzer.py -n <host_port> <size>'
