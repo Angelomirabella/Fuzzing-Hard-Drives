@@ -135,9 +135,9 @@ def go_qemu():
             fd.flush()
             fd.close()
             fd=open(name,'r')
-            str=fd.readline()
-            if str != 'ciao mamma':
-                print 'Read content is different from expected! -> ' , str
+            tmp=fd.readline()
+            if tmp != 'ciao mamma':
+                print 'Read content is different from expected! -> ' , tmp
                 sys.stdout.flush()
             fd.close()
             os.remove(name)
