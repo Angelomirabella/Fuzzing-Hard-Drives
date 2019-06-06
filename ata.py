@@ -258,6 +258,8 @@ def GetDriveIdSgIo_Origin(dev):
   serial_no = SwapString(identify[20:40])
   fw_rev = SwapString(identify[46:53])
   model = SwapString(identify[54:93])
+
+  os.close(fd)
   return  (serial_no, fw_rev, model)
 
 
