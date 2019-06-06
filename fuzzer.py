@@ -155,6 +155,8 @@ def go_qemu():
         print res
         print 'Done ', str(i)
         sys.stdout.flush()
+        client_s.shutdown(socket.SHUT_RDWR)
+        client_s.close()
 
 
 def go_vm():
