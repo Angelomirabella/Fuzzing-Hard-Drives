@@ -325,6 +325,59 @@ def go_offline():
             print 'ERROR'
             exit(0)
 
+def go_qemu_offline():
+    if len(sys.argv) != 4:
+        print "Usage: sudo python server.py <option> <filename> <device>"
+        exit(0)
+    i = 0
+    filename = sys.argv[2]
+
+    dev = sys.argv[3]
+
+    for line in open(filename):
+        values = line.split()
+        ata_pass_through = {'opcode': int(values[0], 0), 'protocol': int(values[1], 0),
+                            'flags': int(values[2], 0), 'features': int(values[3], 0)
+            , 'sector_count': int(values[4], 0), 'lba_low': int(values[5], 0), 'lba_mid': int(values[6], 0),
+                            'lba_high': int(values[7], 0)
+            , 'device': int(values[8], 0), 'command': int(values[9], 0), 'reserved': int(values[10], 0),
+                            'control': int(values[11], 0)}
+
+        print hex(ata_pass_through['opcode']), hex(ata_pass_through['protocol']), hex(ata_pass_through['flags']), hex(
+            ata_pass_through['features']), hex(ata_pass_through['sector_count']), hex(ata_pass_through['lba_low']), hex(
+            ata_pass_through['lba_mid']), hex(ata_pass_through['lba_high']), hex(ata_pass_through['device']), hex(
+            ata_pass_through['command']), hex(ata_pass_through['reserved']), hex(ata_pass_through['control'])
+        res = ata.ReadBlockSgIo("/dev/" + dev, ata_pass_through)
+        i += 1
+        #Test Checks - 1 file system
+
+        try:
+            name='test_file.txt'
+            fd=open(name,'w')
+            fd.write('ciao mamma\n')
+            fd.flush()
+            fd.close()
+            fd=open(name,'r')
+            tmp=fd.readline()
+            if tmp != 'ciao mamma\n':
+                print 'Read content is different from expected! -> ' , tmp
+                sys.stdout.flush()
+            fd.close()
+            #os.remove(name)
+        except:
+            print 'Exception in file system check. Probably it it read only!'
+            sys.stdout.flush()
+            exit(-1)
+
+        #Check 2 - Identify
+        serial_no, fw_rev, model = ata.GetDriveIdSgIo_Origin(sys.argv[3])
+        if serial_no != 'QM00005' or fw_rev != '2.5+' or model != 'QEMU HARDDISK':
+            print 'Identify test failed -->  values: ' , serial_no, fw_rev, model
+
+        print res
+        print 'Done ', str(i)
+        sys.stdout.flush()
+
 
 if __name__=='__main__':
 
@@ -337,7 +390,10 @@ if __name__=='__main__':
         go_offline()
     elif option == '-q':
         go_qemu()
+    elif option == '-qr':
+        go_qemu_offline()
     else:
         print 'Usage: sudo python fuzzer.py -i <port> <device>'
         print 'Usage: sudo python fuzzer.py -n <host_port> <size>'
         print 'Usage: sudo python fuzzer.py -r <filename> <size>'
+        print 'Usage: sudo python fuzzer.py -qr <filename> <device>'
