@@ -130,7 +130,7 @@ def go_qemu():
         #Test Checks - 1 file system
 
         try:
-            name=randomString()
+            name='test_file.txt'
             fd=open(name,'w')
             fd.write('ciao mamma\n')
             fd.flush()
@@ -141,7 +141,7 @@ def go_qemu():
                 print 'Read content is different from expected! -> ' , tmp
                 sys.stdout.flush()
             fd.close()
-            os.remove(name)
+            #os.remove(name)
         except:
             print 'Exception in file system check. Probably it it read only!'
             sys.stdout.flush()
