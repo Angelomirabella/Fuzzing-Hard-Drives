@@ -102,7 +102,7 @@ def go_qemu():
 
     s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
     s.bind(('',int(sys.argv[2])))
-    s.listen(1)
+    s.listen(5)
     print 'Waiting Connections...'
     i=0
 
