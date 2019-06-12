@@ -312,7 +312,7 @@ def go_offline():
             , 'device': int(values[8],0), 'command': int(values[9],0), 'reserved': int(values[10],0),
                             'control': int(values[11],0)}
         cmd = hex(ata_pass_through['opcode']) + ' ' +  hex(ata_pass_through['protocol']) + ' ' +  hex(ata_pass_through['flags']) + ' ' + hex(ata_pass_through['features']) + ' ' +  hex(ata_pass_through['sector_count']) + ' ' +  hex(ata_pass_through['lba_low']) + ' ' +  hex(ata_pass_through['lba_mid']) + ' ' +  hex(ata_pass_through['lba_high']) + ' ' +  hex(ata_pass_through['device']) + ' ' +  hex(ata_pass_through['command']) + ' ' +  hex(ata_pass_through['reserved']) + ' ' +  hex(ata_pass_through['control'])
-        if cmd == '0xa1 0xc 0x2e 0x11 0xa6 0xa1 0xe3 0xa2 0x5e 0xb4 0x9d 0x7a': #blacklist
+        if  hex(ata_pass_through['command']) == '0xb4': #blacklist sanitize device commands 
             continue
         print cmd
         res=ata.ReadBlockSgIo("/dev/"+dev, ata_pass_through)
