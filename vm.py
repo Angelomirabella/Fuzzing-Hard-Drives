@@ -14,59 +14,73 @@ class Vm(threading.Thread):
 
     def off_callback(self,sock):
 
-        #print 'HELLOOOO'
-        cmd= ''
-        while len(cmd) < CMD_LEN:
-            more = sock.recv(CMD_LEN - len(cmd))
-            print more
-            if not more:
-                raise EOFError()
-            cmd += more
+        try:
+            cmd= ''
+            while len(cmd) < CMD_LEN:
+                more = sock.recv(CMD_LEN - len(cmd))
+                print more
+                if not more:
+                    raise EOFError()
+                cmd += more
 
-        print 'post cmd'
-        res= ''
-        while len(res) < RES_LEN:
-            #print 'pre result'
-            more = sock.recv(RES_LEN - len(res))
-            print more
-            if not more:
-               raise EOFError()
-            res += more
-        print 'post res'
-        if all([el==b'\x00' for el in res]): #ssd dead for ever
-            #print 'SSD DEAD ' , res
-            self.out_ok.write("SSD DEAD \n")
-            self.out_bad.write("SSD DEAD \n")
+            print 'post cmd'
+            res= ''
+            while len(res) < RES_LEN:
+                #print 'pre result'
+                more = sock.recv(RES_LEN - len(res))
+                print more
+                if not more:
+                    raise EOFError()
+                res += more
+            print 'post res'
+            if all([el==b'\x00' for el in res]): #ssd dead for ever
+                #print 'SSD DEAD ' , res
+                self.out_ok.write("SSD DEAD \n")
+                self.out_bad.write("SSD DEAD \n")
+                sock.shutdown(socket.SHUT_RDWR)
+                sock.close()
+                return 0
+
+
+            #print 'post res, recv alive'
+            alive=sock.recv(1)
+            #print 'alive 1: ' , alive
+
+            if len(alive) == 0:
+                alive = 0
+        
+            if int(alive) <= 0 or all([el == b'\x01' for el in res]) or int(alive) == 0xff:  # ssd dead - Try to unplug and replug
+
+                if int(alive) == 0xff:
+                    self.out_bad.write("Command: " + cmd + " Identify failed\n")
+                else:
+                    self.out_bad.write("Command: " + cmd + "\n")
+
+                self.out_bad.write(res + "\n")
+                self.out_bad.flush()
+                self.restart(sock)
+            elif int(alive) > 0:
+                self.out_ok.write("Command: " + cmd + "\n")
+                self.out_ok.write(res + "\n")
+                self.out_ok.flush()
+
             sock.shutdown(socket.SHUT_RDWR)
             sock.close()
-            return 0
 
+        except EOFError:
 
-        #print 'post res, recv alive'
-        alive=sock.recv(1)
-        #print 'alive 1: ' , alive
-
-        if len(alive) == 0:  
-            alive = 0
-        
-        if int(alive) <= 0 or all([el == b'\x01' for el in res]) or int(
-                alive) == 0xff:  # ssd dead - Try to unplug and replug
-
-            if int(alive) == 0xff:
-                self.out_bad.write("Command: " + cmd + " Identify failed\n")
+            if len(cmd) > 0:
+                self.out_bad.write("Command: " + cmd + " Connection resetted\n")
+                if len(res) > 0:
+                    self.out_bad.write(res + "\n")
+                else:
+                    self.out_bad.write("No res\n")
             else:
-                self.out_bad.write("Command: " + cmd + "\n")
+                self.out_bad.write("Command unknown Connection resetted\n")
 
-            self.out_bad.write(res + "\n")
             self.out_bad.flush()
-            self.restart(sock)
-        elif int(alive) > 0:
-            self.out_ok.write("Command: " + cmd + "\n")
-            self.out_ok.write(res + "\n")
-            self.out_ok.flush()
+            self.restart(sock, 1)
 
-        sock.shutdown(socket.SHUT_RDWR)
-        sock.close()
         return 1
 
     def callback(self,target,fuzz_data_logger,session,*args,**kwargs):
@@ -194,6 +208,8 @@ class Vm(threading.Thread):
     def live_init(self,line):
         self.iterations=line[3]
         self.target=Target(connection=SocketConnection("127.0.0.1", int(self.dst_port), proto='tcp', recv_timeout=600,send_timeout=600))
+        self.target._sock.settimeout(None)
+
         self.session=Session(target=self.target)
         self.session.register_post_test_case_callback(self.callback)
         self.out_ok=open("./output/"+str(self.id)+"_good_commands.txt","a+")
