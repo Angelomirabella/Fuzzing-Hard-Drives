@@ -35,21 +35,41 @@ def quit_handler(signum, frame):
     exit(0)
 
 def work():
-    i=1
+    i=0
     while True:
         sem.acquire()
         if stop:
             exit(0)
     #    print 'Test: ', i
+
+        proc = subprocess.Popen(["lsblk | grep " + sys.argv[3] + " | head -n 1 | awk '{print $1;}'"],
+                                stdout=subprocess.PIPE, shell=True)
+        (out, err) = proc.communicate()
+        dev = out[:-1]
+
         ata_pass_through= queue.get()
+
         if len(ata_pass_through) != 12:
             continue
-        print hex(ata_pass_through['opcode']), hex(ata_pass_through['protocol']), hex(ata_pass_through['flags']),hex(ata_pass_through['features']),hex(ata_pass_through['sector_count']),hex(ata_pass_through['lba_low']),hex(ata_pass_through['lba_mid']),hex(ata_pass_through['lba_high']),hex(ata_pass_through['device']),hex(ata_pass_through['command']),hex(ata_pass_through['reserved']),hex(ata_pass_through['control'])
 
-        res = ata.ReadBlockSgIo("/dev/"+sys.argv[3], ata_pass_through)
+        cmd =  "0x{:02x}".format((ata_pass_through['opcode'])) + ' ' +  "0x{:02x}".format((ata_pass_through['protocol'])) + ' ' +  "0x{:02x}".format((ata_pass_through['flags'])) + ' ' + "0x{:02x}".format((ata_pass_through['features'])) + ' ' +  "0x{:02x}".format((ata_pass_through['sector_count'])) + ' ' +  "0x{:02x}".format((ata_pass_through['lba_low'])) + ' ' +  "0x{:02x}".format((ata_pass_through['lba_mid'])) + ' ' +  "0x{:02x}".format((ata_pass_through['lba_high'])) + ' ' +  "0x{:02x}".format((ata_pass_through['device'])) + ' ' +  "0x{:02x}".format((ata_pass_through['command'])) + ' ' +  "0x{:02x}".format((ata_pass_through['reserved'])) + ' ' +  "0x{:02x}".format((ata_pass_through['control']))
+        print cmd
+
+        if  hex(ata_pass_through['command']) == '0xb4': #blacklist sanitize device commands
+            continue
+
+        res=ata.ReadBlockSgIo("/dev/"+dev, ata_pass_through)
         i += 1
+
+        proc = subprocess.Popen(["lsblk | grep " + dev + " | head -n 1 | awk '{print $4;}'"], stdout=subprocess.PIPE, shell=True)
+        (out, err) = proc.communicate()
+
         print res
-        print 'Done ', str(i)
+        print 'Done ' + str(i) + ' Size ' + out
+        sys.stdout.flush()
+        if out[:-1] != sys.argv[3]:
+            print 'ERROR'
+            exit(0)
 
 
 
@@ -61,7 +81,7 @@ def go_live():
     global stop
 
     if len(sys.argv) != 4:
-        print "Usage: sudo python server.py <option> <port> <device>"
+        print "Usage: sudo python server.py <option> <port> <size>"
         exit(0)
     signal.signal(signal.SIGINT, quit_handler)
     t = threading.Thread(target=work)
@@ -72,6 +92,7 @@ def go_live():
     s.listen(5)
     print 'Waiting Connections...'
     i=1
+
 
     while True:
         client_s, addr= s.accept()
@@ -395,7 +416,7 @@ if __name__=='__main__':
     elif option == '-qr':
         go_qemu_offline()
     else:
-        print 'Usage: sudo python fuzzer.py -i <port> <device>'
+        print 'Usage: sudo python fuzzer.py -i <port> <size>'
         print 'Usage: sudo python fuzzer.py -n <host_port> <size>'
         print 'Usage: sudo python fuzzer.py -r <filename> <size>'
         print 'Usage: sudo python fuzzer.py -qr <filename> <device>'
