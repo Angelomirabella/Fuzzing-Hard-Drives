@@ -208,7 +208,7 @@ class Vm(threading.Thread):
     def live_init(self,line):
         self.iterations=line[3]
         self.target=Target(connection=SocketConnection("127.0.0.1", int(self.dst_port), proto='tcp', recv_timeout=600,send_timeout=600))
-        self.target._sock.settimeout(None)
+        self.target._target_connection._sock.settimeout(None)
 
         self.session=Session(target=self.target)
         self.session.register_post_test_case_callback(self.callback)
